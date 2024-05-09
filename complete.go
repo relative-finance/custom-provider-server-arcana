@@ -68,8 +68,8 @@ func (a *application) completeLogin(c echo.Context) error {
 
 	// Create JWT
 	cl := jwt.Claims{
-		Audience:  []string{"ecc6292e414c8228ae69ce5ff6a1b3eca59984e9"},
-		Issuer:    a.selfURL,
+		Audience:  []string{a.jwtAudience},
+		Issuer:    a.jwtIssuer,
 		NotBefore: jwt.NewNumericDate(time.Now()),
 		IssuedAt:  jwt.NewNumericDate(time.Now()),
 		Expiry:    jwt.NewNumericDate(time.Now().Add(time.Minute * 3)),

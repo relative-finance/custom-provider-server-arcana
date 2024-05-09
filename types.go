@@ -4,7 +4,8 @@ type configuration struct {
 	ListenPort  string
 	RedirectURL string
 	KeyFilePath string
-	SelfURL     string
+	JwtIssuer   string
+	JwtAudience string
 	Verifiers   []ProviderConfig
 }
 

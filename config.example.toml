@@ -1,0 +1,23 @@
+KeyFilePath = "./priv.key"
+ListenPort = "3001"
+RedirectURL = "http://localhost:5173/complete"
+JwtAudience = ""
+JwtIssuer = ""
+
+[[Verifiers]]
+Name = "google"
+ClientID = ""
+ClientSecret = ""
+Scope = ["openid", "profile", "email"]
+
+[[Verifiers]]
+Name = "epic"
+ClientID = ""
+ClientSecret = ""
+Scope = ["basic_profile"]
+
+[[Verifiers]]
+Name = "twitch"
+ClientID = ""
+ClientSecret = ""
+Scope = ["user:read:email"]

@@ -1,2 +1,4 @@
 *.key
 *.toml
+
+!config.example.toml

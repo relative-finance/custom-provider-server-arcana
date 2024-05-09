@@ -21,10 +21,11 @@ type ProviderDetails struct {
 }
 
 type application struct {
-	authMap   map[string]*ProviderDetails
-	signer    jose.Signer
-	publicKey ecdsa.PublicKey
-	selfURL   string
+	authMap     map[string]*ProviderDetails
+	signer      jose.Signer
+	publicKey   ecdsa.PublicKey
+	jwtIssuer   string
+	jwtAudience string
 }
 
 func main() {
@@ -33,7 +34,7 @@ func main() {
 
 	{
 		// Reading config
-		cpath := os.Getenv("AUTHZ_CONFIG_PATH")
+		cpath := os.Getenv("CONFIG_PATH")
 		if len(cpath) == 0 {
 			cpath = "config.toml"
 		}
@@ -73,7 +74,8 @@ func main() {
 
 		app.publicKey = key.PublicKey
 		app.signer = signer
-		app.selfURL = cfg.SelfURL
+		app.jwtIssuer = cfg.JwtIssuer
+		app.jwtAudience = cfg.JwtAudience
 	}
 
 	{
