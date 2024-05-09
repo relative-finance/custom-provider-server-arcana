@@ -4,7 +4,13 @@ type configuration struct {
 	ListenPort  string
 	RedirectURL string
 	KeyFilePath string
-	SelfURL     string
+	JwtIssuer   string
+	JwtAudience string
+	MySQLHost   string
+	MySQLPort   string
+	MySQLUser   string
+	MySQLPass   string
+	MySQLDB     string
 	Verifiers   []ProviderConfig
 }
 

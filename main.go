@@ -7,11 +7,13 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/BurntSushi/toml"
 	"github.com/go-jose/go-jose/v4"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/patrickmn/go-cache"
 	"golang.org/x/oauth2/google"
 )
 
@@ -21,19 +23,23 @@ type ProviderDetails struct {
 }
 
 type application struct {
-	authMap   map[string]*ProviderDetails
-	signer    jose.Signer
-	publicKey ecdsa.PublicKey
-	selfURL   string
+	authMap     map[string]*ProviderDetails
+	signer      jose.Signer
+	publicKey   ecdsa.PublicKey
+	jwtIssuer   string
+	jwtAudience string
+	cache       cache.Cache
+	db          UserStore
 }
 
 func main() {
 	cfg := new(configuration)
 	app := new(application)
+	app.cache = *cache.New(cache.NoExpiration, 5*time.Minute)
 
 	{
 		// Reading config
-		cpath := os.Getenv("AUTHZ_CONFIG_PATH")
+		cpath := os.Getenv("CONFIG_PATH")
 		if len(cpath) == 0 {
 			cpath = "config.toml"
 		}
@@ -73,7 +79,17 @@ func main() {
 
 		app.publicKey = key.PublicKey
 		app.signer = signer
-		app.selfURL = cfg.SelfURL
+		app.jwtIssuer = cfg.JwtIssuer
+		app.jwtAudience = cfg.JwtAudience
+	}
+
+	{
+		connectionStr := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", cfg.MySQLUser, cfg.MySQLPass, cfg.MySQLHost, cfg.MySQLPort, cfg.MySQLDB)
+		db, err := connectToDB(connectionStr)
+		if err != nil {
+			panic(err)
+		}
+		app.db = db
 	}
 
 	{
@@ -100,6 +116,8 @@ func main() {
 	e := echo.New()
 	e.Use(middleware.CORS())
 	e.GET("/start", app.startLogin)
+	e.GET("/link/:provider", app.linkAccount)
+	e.GET("/connected-accounts", app.connectedAccounts)
 	e.POST("/complete", app.completeLogin)
 	e.GET("/.well-known/jwks.json", app.JWKSEndpoint)
 

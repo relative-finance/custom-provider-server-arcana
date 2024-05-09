@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -41,11 +42,11 @@ func (a *application) completeLogin(c echo.Context) error {
 
 	state := string(verifiedData)
 	sl := strings.Split(state, ":")
-	if len(sl) < 2 {
+	if len(sl) < 3 {
 		return errors.New("unexpected state found")
 	}
 
-	p, ok := a.authMap[sl[0]]
+	p, ok := a.authMap[sl[1]]
 	if !ok {
 		return errors.New("login type not available")
 	}
@@ -64,33 +65,65 @@ func (a *application) completeLogin(c echo.Context) error {
 		return err
 	}
 
-	fmt.Println("id:", id)
+	if sl[0] == "link" {
+		err := a.linkComplete(id, sl[1], sl[2])
+		if err != nil {
+			return err
+		}
+		return c.JSON(200, map[string]any{
+			"linkComplete":  true,
+			"linkedAccount": sl[1],
+		})
+	}
 
 	// Create JWT
 	cl := jwt.Claims{
-		Audience:  []string{"ecc6292e414c8228ae69ce5ff6a1b3eca59984e9"},
-		Issuer:    a.selfURL,
+		Audience:  []string{a.jwtAudience},
+		Issuer:    a.jwtIssuer,
 		NotBefore: jwt.NewNumericDate(time.Now()),
 		IssuedAt:  jwt.NewNumericDate(time.Now()),
 		Expiry:    jwt.NewNumericDate(time.Now().Add(time.Minute * 3)),
 	}
 
+	// Get user from DB
+	user, err := a.db.GetUserID(id, sl[1])
+	if err != nil {
+		return err
+	}
+	if user == 0 {
+		err := a.db.CreateNewUser(id, sl[1])
+		if err != nil {
+			return err
+		}
+	}
+	user, err = a.db.GetUserID(id, sl[1])
+	if err != nil {
+		return err
+	}
+
 	// Get or insert user to db, get ID and replace UserID
 	customClaims := customClaims{
-		UserID:    id,
-		LoginType: sl[0],
+		UserID:    strconv.Itoa(user),
+		LoginType: sl[1],
 		LoginID:   id,
 	}
 
 	token, err := jwt.Signed(a.signer).Claims(cl).Claims(customClaims).Serialize()
 	if err != nil {
 		fmt.Println("jwtcreationerror:", err)
-
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
 
+	cl.Audience = []string{cl.Issuer}
+	loginToken, err := jwt.Signed(a.signer).Claims(cl).Claims(customClaims).Serialize()
+	if err != nil {
+		fmt.Println("jwtcreationerror:", err)
+		return echo.NewHTTPError(http.StatusInternalServerError)
+	}
 	return c.JSON(http.StatusOK, map[string]string{
-		"token":  token,
-		"userID": id,
+		"token":      token,
+		"userID":     strconv.Itoa(user),
+		"loginType":  sl[1],
+		"loginToken": loginToken,
 	})
 }

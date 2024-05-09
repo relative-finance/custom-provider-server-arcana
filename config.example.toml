@@ -1,0 +1,28 @@
+KeyFilePath = "./priv.key"
+ListenPort = "3001"
+RedirectURL = ""
+JwtAudience = ""
+JwtIssuer = ""
+MySQLHost = "localhost"
+MySQLPort = "3306"
+MySQLUser = ""
+MySQLPass = ""
+MySQLDB = ""
+
+[[Verifiers]]
+Name = "google"
+ClientID = ""
+ClientSecret = ""
+Scope = ["openid", "profile", "email"]
+
+[[Verifiers]]
+Name = "epic"
+ClientID = ""
+ClientSecret = ""
+Scope = ["basic_profile"]
+
+[[Verifiers]]
+Name = "twitch"
+ClientID = ""
+ClientSecret = ""
+Scope = ["user:read:email"]
