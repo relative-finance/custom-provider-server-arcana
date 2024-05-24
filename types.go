@@ -4,7 +4,7 @@ type configuration struct {
 	ListenPort  string
 	RedirectURL string
 	KeyFilePath string
-	JwtIssuer   string
+	SelfURL     string
 	JwtAudience string
 	MySQLHost   string
 	MySQLPort   string
@@ -27,4 +27,13 @@ type customClaims struct {
 	UserID    string `json:"user_id"`
 	LoginID   string `json:"login_id"`
 	LoginType string `json:"login_type"`
+}
+
+type SteamSession struct {
+	ID          int
+	SteamID     string
+	ClientID    string
+	RedirectURI string
+	State       string
+	Code        string
 }

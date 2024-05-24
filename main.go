@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
+	"github.com/arcana-network/groot/logger"
 	"github.com/go-jose/go-jose/v4"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -26,7 +27,7 @@ type application struct {
 	authMap     map[string]*ProviderDetails
 	signer      jose.Signer
 	publicKey   ecdsa.PublicKey
-	jwtIssuer   string
+	selfURL     string
 	jwtAudience string
 	cache       cache.Cache
 	db          UserStore
@@ -79,7 +80,7 @@ func main() {
 
 		app.publicKey = key.PublicKey
 		app.signer = signer
-		app.jwtIssuer = cfg.JwtIssuer
+		app.selfURL = cfg.SelfURL
 		app.jwtAudience = cfg.JwtAudience
 	}
 
@@ -121,7 +122,26 @@ func main() {
 	e.POST("/complete", app.completeLogin)
 	e.GET("/.well-known/jwks.json", app.JWKSEndpoint)
 
-	_ = e.Start(fmt.Sprintf(":%s", cfg.ListenPort))
+	{
+		steamConfig, ok := app.authMap["steam"]
+		if ok {
+			steamHandler := NewSteamHandler(SteamConfig{
+				store:        app.db,
+				redirectURL:  cfg.RedirectURL,
+				selfURL:      app.selfURL,
+				clientID:     steamConfig.conf.ClientID,
+				clientSecret: steamConfig.conf.ClientSecret,
+				signer:       app.signer,
+				publicKey:    &app.publicKey,
+			}, logger.NewTestLogger())
+
+			e.GET("/steam/oauth2/authorize", steamHandler.Authorize)
+			e.GET("/steam/oauth2/redirect", steamHandler.Redirect)
+			e.POST("/steam/oauth2/token", steamHandler.TokenExchange)
+			e.GET("/steam/oauth2/verify", steamHandler.Verify)
+		}
+		_ = e.Start(fmt.Sprintf(":%s", cfg.ListenPort))
+	}
 }
 
 func (a *application) JWKSEndpoint(c echo.Context) error {
@@ -153,6 +173,10 @@ func (app *application) getConfig(providerConf ProviderConfig) (*OAuth2Config, e
 	case "twitch":
 		c.Endpoint = TwitchEndpoint
 		c.userInfoURL = TWITCH_USER_INFO_URL
+		return c, nil
+	case "steam":
+		c.Endpoint = getSteamEndpoint(app.selfURL)
+		c.userInfoURL = getSteamUserInfoURL(app.selfURL)
 		return c, nil
 	}
 
