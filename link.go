@@ -36,7 +36,7 @@ func (a *application) linkAccount(c echo.Context) error {
 
 	st := uniuri.NewLen(10)
 	a.cache.Set(st, claims, time.Minute*5)
-	url, err := a.getLoginURL("link", loginType, st)
+	url, err := a.getLoginURL(c, "link", loginType, st)
 	if err != nil {
 		fmt.Println(err)
 		return err
@@ -99,4 +99,27 @@ func (a *application) linkComplete(userID, loginType, st string) error {
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
 	return nil
+}
+
+func (a *application) getUser(c echo.Context) error {
+	// Get query parameter
+	userID := c.QueryParam("userID")
+	// if err != nil {
+	// 	return errors.New("Invalid query params")
+	// }
+
+	accounts, err := a.db.GetConnectedAccounts(userID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError)
+	}
+	for _, account := range accounts {
+		fmt.Println(account.Provider)
+		fmt.Println(account.ID)
+		if(account.Provider == "steam"){
+			return c.JSON(http.StatusOK, map[string]string{
+				"steamID":      account.ID,
+			})
+		}
+	}
+	return echo.NewHTTPError(http.StatusInternalServerError)
 }

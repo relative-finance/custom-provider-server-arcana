@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:latest
+    logging:
+      options:
+        max-size: "200k"
+        max-file: "1"
+    container_name: mysql_db
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: mydatabase
+      MYSQL_USER: myuser
+      MYSQL_PASSWORD: mypassword
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+  auth-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - '80:80'
+    depends_on:
+      - db
+    # environment:
+    #   - COINGECKO_API_KEY=$COINGECKO_API_KEY
+    #   - QUOTIENT_API_KEY=$QUOTIENT_API_KEY
+    #   - MONGODB_URI=$MONGODB_URI
+    restart: always
+    logging:
+      options:
+        max-size: "200k"
+        max-file: "1"
+
+
+volumes:
+  db_data:

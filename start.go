@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/json"
 	"net/http"
+	"fmt"
+	"net/url"
 
 	"github.com/dchest/uniuri"
 	"github.com/labstack/echo/v4"
@@ -15,7 +17,7 @@ func (a *application) startLogin(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "loginType query is expected")
 	}
 
-	url, err := a.getLoginURL("login", loginType, uniuri.NewLen(10))
+	url, err := a.getLoginURL(c, "login", loginType, uniuri.NewLen(10))
 	if err != nil {
 		return err
 	}
@@ -23,7 +25,7 @@ func (a *application) startLogin(c echo.Context) error {
 	return c.Redirect(http.StatusSeeOther, url)
 }
 
-func (a *application) getLoginURL(flowType, loginType, st string) (string, error) {
+func (a *application) getLoginURL(c echo.Context, flowType, loginType, st string) (string, error) {
 	p, ok := a.authMap[loginType]
 	if !ok {
 		return "", echo.NewHTTPError(http.StatusBadRequest, "login type not available")
@@ -42,6 +44,27 @@ func (a *application) getLoginURL(flowType, loginType, st string) (string, error
 	}
 
 	options := getOAuthOption(loginType)
+	origin := c.Request().Header.Get("Referer")
+	parsedURL, err := url.Parse(origin)
+	if err != nil {
+		return "", echo.NewHTTPError(http.StatusInternalServerError)
+	}
+	host := parsedURL.Host
+
+	redirectURL := fmt.Sprintf("%s://%s/authentication/callback",parsedURL.Scheme, host)
+	// redirectURL := fmt.Sprintf("http://localhost:3000/authentication/callback")
+	fmt.Println("redirectURLejiefied")
+	fmt.Println(redirectURL)
+
+	// c := new(OAuth2Config)
+	// c.ClientID = p.conf.ClientID
+	// c.ClientSecret = p.conf.ClientSecret
+	// c.Scopes = p.conf.Scope
+	// c.provider = p.conf.Name
+	// c.Endpoint = google.Endpoint
+	// c.userInfoURL = GOOGLE_USER_INFO_URL
+
+	p.conf.RedirectURL = redirectURL
 	url := p.conf.AuthCodeURL(sig, options...)
 	return url, nil
 }

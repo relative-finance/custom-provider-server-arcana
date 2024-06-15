@@ -2,7 +2,7 @@ package main
 
 import (
 	"crypto/ecdsa"
-	"errors"
+	// "errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -100,19 +100,21 @@ func (v *SteamHandler) Authorize(c echo.Context) error {
 	clientID := c.QueryParam("client_id")
 	redirect_uri := c.QueryParam("redirect_uri")
 
-	redirectURL, err := url.Parse(v.authURL)
-	if err != nil {
-		return err
-	}
+	redirectURL := redirect_uri
 
-	if redirect_uri != redirectURL.String() {
-		v.log.Error("invalid redirect", logger.Field{
-			"expected": redirectURL.String(),
-			"actual":   redirect_uri,
-		})
+	// redirectURL, err := url.Parse(v.authURL)
+	// if err != nil {
+	// 	return err
+	// }
 
-		return errors.New("Invalid redirect url")
-	}
+	// if redirect_uri != redirectURL.String() {
+	// 	v.log.Error("invalid redirect", logger.Field{
+	// 		"expected": redirectURL.String(),
+	// 		"actual":   redirect_uri,
+	// 	})
+
+	// 	return errors.New("Invalid redirect url")
+	// }
 
 	returnToURL, err := url.Parse(v.selfURL)
 	if err != nil {
@@ -120,7 +122,7 @@ func (v *SteamHandler) Authorize(c echo.Context) error {
 	}
 
 	returnToURL.Path = "/steam/oauth2/redirect"
-	err = v.store.AddSteamSession(clientID, redirectURL.String(), state)
+	err = v.store.AddSteamSession(clientID, redirectURL, state)
 	if err != nil {
 		return err
 	}
@@ -172,7 +174,8 @@ func (v *SteamHandler) Redirect(c echo.Context) error {
 		}
 
 		// TODO: Get from config
-		u, err := url.Parse(v.authURL)
+
+		u, err := url.Parse(session.RedirectURI)
 		if err != nil {
 			v.log.Error("", logger.Field{"err": err})
 			return err

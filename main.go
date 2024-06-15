@@ -86,6 +86,8 @@ func main() {
 
 	{
 		connectionStr := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", cfg.MySQLUser, cfg.MySQLPass, cfg.MySQLHost, cfg.MySQLPort, cfg.MySQLDB)
+		fmt.Println(connectionStr)
+		fmt.Println(google.Endpoint)
 		db, err := connectToDB(connectionStr)
 		if err != nil {
 			panic(err)
@@ -121,6 +123,7 @@ func main() {
 	e.GET("/connected-accounts", app.connectedAccounts)
 	e.POST("/complete", app.completeLogin)
 	e.GET("/.well-known/jwks.json", app.JWKSEndpoint)
+	e.GET("/user", app.getUser)
 
 	{
 		steamConfig, ok := app.authMap["steam"]
