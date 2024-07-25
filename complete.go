@@ -12,6 +12,7 @@ import (
 	"github.com/go-jose/go-jose/v4"
 	"github.com/go-jose/go-jose/v4/jwt"
 	"github.com/labstack/echo/v4"
+	"golang.org/x/oauth2"
 )
 
 type completeParams struct {
@@ -20,10 +21,19 @@ type completeParams struct {
 }
 
 func (a *application) completeLogin(c echo.Context) error {
+	c.Response().Header().Set("Access-Control-Allow-Credentials", "true")
+
+	headers := c.Request().Header
+	for name, values := range headers {
+		for _, value := range values {
+			fmt.Printf("%s: %s", name, value)
+		}
+	}
 	params := new(completeParams)
 	if err := c.Bind(params); err != nil {
 		return err
 	}
+
 	stateB64 := params.State
 	code := params.Code
 	if stateB64 == "" || code == "" {
@@ -53,12 +63,27 @@ func (a *application) completeLogin(c echo.Context) error {
 
 	oauth2Token, err := p.conf.Exchange(context.Background(), code)
 	if err != nil {
-		fmt.Println("exchange:", err, "code:", code)
-		return err
+		if err.Error() == "oauth2: \"invalid_request\" \"code_verifier required\"" {
+			session, _ := Store.Get(c.Request(), "cookie-name")
+
+			verifier, ok := session.Values["codeVerifier"].(string)
+			if !ok {
+				fmt.Println(verifier)
+				fmt.Println("veirfier not found")
+				return err
+			}
+			oauth2Token, err = p.conf.Exchange(context.Background(), code, oauth2.SetAuthURLParam("code_verifier", verifier))
+			if err != nil {
+				fmt.Println("something: %s", err.Error())
+				return err
+			}
+		} else {
+			fmt.Println("exchange:", err, "code:", code)
+			return err
+		}
 	}
 
 	accessToken := oauth2Token.AccessToken
-	fmt.Println("accessToken:", accessToken)
 	id, err := p.conf.getUserInfo(accessToken)
 	if err != nil {
 		fmt.Println("err:", err)
@@ -75,7 +100,6 @@ func (a *application) completeLogin(c echo.Context) error {
 			"linkedAccount": sl[1],
 		})
 	}
-
 	// Create JWT
 	cl := jwt.Claims{
 		Audience:  []string{a.jwtAudience},

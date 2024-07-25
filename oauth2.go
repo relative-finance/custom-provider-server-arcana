@@ -14,6 +14,11 @@ type OAuth2Config struct {
 	provider    string
 }
 
+var LichessEndpoint = oauth2.Endpoint{
+	AuthURL:  "https://lichess.org/oauth",
+	TokenURL: "https://lichess.org/api/token",
+}
+
 var EpicEndpoint = oauth2.Endpoint{
 	AuthURL:   "https://www.epicgames.com/id/authorize",
 	TokenURL:  "https://api.epicgames.dev/epic/oauth/v1/token",
@@ -50,6 +55,11 @@ type GoogleUserInfoRes struct {
 
 type EpicUserInfoRes struct {
 	Sub string `json:"sub"`
+}
+
+type LichessUserInfoRes struct {
+	ID       string `json:"id"`
+	Username string `json:"username"`
 }
 
 type TwitchUserInfo struct {
@@ -100,6 +110,19 @@ func (c *OAuth2Config) getUserInfo(token string) (string, error) {
 			return "", errors.New("error during userInfo API call")
 		}
 		return info.Sub, nil
+	case "lichess":
+		var info LichessUserInfoRes
+		res, err := req.R().
+			SetBearerAuthToken(token).
+			SetSuccessResult(&info).
+			Get(c.userInfoURL)
+		if err != nil {
+			return "", err
+		}
+		if res.IsErrorState() {
+			return "", errors.New("error during userInfo API call")
+		}
+		return info.ID, nil
 	case "twitch":
 		var info TwitchUserInfo
 		res, err := req.R().

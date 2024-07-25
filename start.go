@@ -1,17 +1,43 @@
 package main
 
 import (
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
-	"net/http"
 	"fmt"
+	"net/http"
 	"net/url"
 
 	"github.com/dchest/uniuri"
+	"github.com/gorilla/sessions"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/oauth2"
 )
 
+var Store = sessions.NewCookieStore([]byte("super-secret-key"))
+
+func base64URLEncode(data []byte) string {
+	return base64.RawURLEncoding.EncodeToString(data)
+}
+
+func createVerifier() (string, error) {
+	verifier := make([]byte, 32)
+	_, err := rand.Read(verifier)
+	if err != nil {
+		return "", err
+	}
+	return base64URLEncode(verifier), nil
+}
+
+func createChallenge(verifier string) string {
+	hash := sha256.Sum256([]byte(verifier))
+	return base64URLEncode(hash[:])
+}
+
 func (a *application) startLogin(c echo.Context) error {
+	c.Response().Header().Set("Access-Control-Allow-Credentials", "true")
+	// c.Response().Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
 	loginType := c.QueryParam("loginType")
 	if loginType == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "loginType query is expected")
@@ -42,6 +68,9 @@ func (a *application) getLoginURL(c echo.Context, flowType, loginType, st string
 	if err != nil {
 		return "", echo.NewHTTPError(http.StatusInternalServerError)
 	}
+	Store.Options.HttpOnly = true
+	Store.Options.SameSite = http.SameSiteStrictMode
+	session, _ := Store.Get(c.Request(), "cookie-name")
 
 	options := getOAuthOption(loginType)
 	origin := c.Request().Header.Get("Referer")
@@ -51,10 +80,26 @@ func (a *application) getLoginURL(c echo.Context, flowType, loginType, st string
 	}
 	host := parsedURL.Host
 
-	redirectURL := fmt.Sprintf("%s://%s/authentication/callback",parsedURL.Scheme, host)
+	// redirectURL := fmt.Sprintf("%s://%s/complete", parsedURL.Scheme, host)
+	redirectURL := fmt.Sprintf("%s://%s/authentication/callback", parsedURL.Scheme, host)
 	// redirectURL := fmt.Sprintf("http://localhost:3000/authentication/callback")
 	fmt.Println("redirectURLejiefied")
 	fmt.Println(redirectURL)
+
+	if loginType == "lichess" {
+		verifier, err := createVerifier()
+		if err != nil {
+			return "", err
+		}
+		challenge := createChallenge(verifier)
+
+		options = append(options, oauth2.SetAuthURLParam("response_type", "code"))
+		options = append(options, oauth2.SetAuthURLParam("client_id", "random"))
+		options = append(options, oauth2.SetAuthURLParam("code_challenge_method", "S256"))
+		options = append(options, oauth2.SetAuthURLParam("code_challenge", challenge))
+		session.Values["codeVerifier"] = verifier
+		session.Save(c.Request(), c.Response().Writer)
+	}
 
 	// c := new(OAuth2Config)
 	// c.ClientID = p.conf.ClientID

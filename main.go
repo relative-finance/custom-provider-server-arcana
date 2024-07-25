@@ -181,6 +181,10 @@ func (app *application) getConfig(providerConf ProviderConfig) (*OAuth2Config, e
 		c.Endpoint = getSteamEndpoint(app.selfURL)
 		c.userInfoURL = getSteamUserInfoURL(app.selfURL)
 		return c, nil
+	case "lichess":
+		c.Endpoint = LichessEndpoint
+		c.userInfoURL = LICHESS_USER_INFO_URL
+		return c, nil
 	}
 
 	return nil, fmt.Errorf("%s provider not supported", providerConf.Name)
