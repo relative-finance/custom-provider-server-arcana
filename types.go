@@ -11,6 +11,7 @@ type configuration struct {
 	MySQLUser   string
 	MySQLPass   string
 	MySQLDB     string
+	Apikey      string
 	Verifiers   []ProviderConfig
 }
 
