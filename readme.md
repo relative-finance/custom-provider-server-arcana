@@ -14,5 +14,13 @@ openssl pkcs8 -topk8 -nocrypt -in private.oauth.ec.key -out priv.key
 - Update your `config.toml` with required details and then run
 
 ```sh
-go run .
+docker compose up -d --build
+```
+
+- add the tables to the db instance
+```
+docker exec -it 3216a9ff21ed bin/bash
+mysql -u myuser -p
+use mydatabase;
+<!-- create all the tables based on the commands in the comments in db.go -->
 ```

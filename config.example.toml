@@ -8,6 +8,7 @@ MySQLPort = "3306"
 MySQLUser = ""
 MySQLPass = ""
 MySQLDB = ""
+Apikey = ""
 
 [[Verifiers]]
 Name = "google"

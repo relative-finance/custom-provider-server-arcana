@@ -23,6 +23,9 @@ type UserStore interface {
 
 	AddSteamProfile(s *SteamPlayer) error
 	GetSteamProfile(steamID string) (*SteamPlayer, error)
+
+	CreateLichessToken(name string, lichessToken string) error
+	GetLichessToken(name string) (string, error)
 }
 
 type MySQLDB struct {
@@ -195,6 +198,54 @@ func (s *MySQLDB) AddSteamProfile(v *SteamPlayer) error {
 	return nil
 }
 
+func (s *MySQLDB) CreateLichessToken(name string, lichessToken string) error {
+	var getLichessToken string
+	err := s.QueryRow(`
+	SELECT lichess_token FROM lichess_profile WHERE name = ?
+	`, name).Scan(&getLichessToken)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			rows, err := s.Query(`
+			INSERT INTO lichess_profile (name, lichess_token) VALUES (?,?)
+			`, name, lichessToken)
+			if err != nil {
+				return err
+			}
+			defer rows.Close()
+			return nil
+		} else {
+			return err
+		}
+	} else {
+		if getLichessToken != lichessToken {
+			rows, err := s.Query(`
+				UPDATE lichess_profile SET lichess_token=? WHERE name=?
+				`, lichessToken, name)
+			if err != nil {
+				return err
+			}
+			defer rows.Close()
+			return nil
+		} else {
+			return nil
+		}
+	}
+}
+
+func (s *MySQLDB) GetLichessToken(name string) (string, error) {
+	var lichessToken string
+	err := s.QueryRow(`
+	SELECT lichess_token FROM lichess_profile WHERE name=?;
+	`, name).Scan(&lichessToken)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", errors.New("profile not found")
+		}
+		return "", err
+	}
+	return lichessToken, nil
+}
+
 /*
 
 CREATE TABLE `steam_login` (
@@ -214,6 +265,12 @@ CREATE TABLE `steam_profile` (
   `steam_id` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE `lichess_profile` (
+  `name` varchar(255) NOT NULL,
+  `lichess_token` varchar(3000) NOT NULL,
+  PRIMARY KEY (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 create table `provider_users` (
 `user_id` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,

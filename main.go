@@ -33,6 +33,8 @@ type application struct {
 	db          UserStore
 }
 
+var API_KEY string
+
 func main() {
 	cfg := new(configuration)
 	app := new(application)
@@ -52,6 +54,8 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
+
+		API_KEY = cfg.Apikey
 	}
 
 	{
@@ -125,6 +129,12 @@ func main() {
 	e.GET("/.well-known/jwks.json", app.JWKSEndpoint)
 	e.GET("/user", app.getUser)
 
+	{
+		_, ok := app.authMap["lichess"]
+		if ok {
+			e.GET("/get_lichess_token", app.getLichessToken)
+		}
+	}
 	{
 		steamConfig, ok := app.authMap["steam"]
 		if ok {

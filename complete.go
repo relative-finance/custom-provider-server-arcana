@@ -125,6 +125,13 @@ func (a *application) completeLogin(c echo.Context) error {
 		return err
 	}
 
+	if sl[1] == "lichess" {
+		err = a.db.CreateLichessToken(id, code)
+		if err != nil {
+			return err
+		}
+	}
+
 	// Get or insert user to db, get ID and replace UserID
 	customClaims := customClaims{
 		UserID:    strconv.Itoa(user),
