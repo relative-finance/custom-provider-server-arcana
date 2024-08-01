@@ -9,6 +9,7 @@ MySQLUser = ""
 MySQLPass = ""
 MySQLDB = ""
 Apikey = ""
+ShowdownUserService = ""
 
 [[Verifiers]]
 Name = "google"

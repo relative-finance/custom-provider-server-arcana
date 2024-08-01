@@ -1,18 +1,19 @@
 package main
 
 type configuration struct {
-	ListenPort  string
-	RedirectURL string
-	KeyFilePath string
-	SelfURL     string
-	JwtAudience string
-	MySQLHost   string
-	MySQLPort   string
-	MySQLUser   string
-	MySQLPass   string
-	MySQLDB     string
-	Apikey      string
-	Verifiers   []ProviderConfig
+	ListenPort          string
+	RedirectURL         string
+	KeyFilePath         string
+	SelfURL             string
+	JwtAudience         string
+	MySQLHost           string
+	MySQLPort           string
+	MySQLUser           string
+	MySQLPass           string
+	MySQLDB             string
+	Apikey              string
+	ShowdownUserService string
+	Verifiers           []ProviderConfig
 }
 
 type ProviderConfig struct {

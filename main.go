@@ -34,9 +34,10 @@ type application struct {
 }
 
 var API_KEY string
+var cfg = new(configuration)
 
 func main() {
-	cfg := new(configuration)
+	// cfg := new(configuration)
 	app := new(application)
 	app.cache = *cache.New(cache.NoExpiration, 5*time.Minute)
 
@@ -133,6 +134,7 @@ func main() {
 		_, ok := app.authMap["lichess"]
 		if ok {
 			e.GET("/get_lichess_token", app.getLichessToken)
+			e.GET("/get_lichess_token_from_access_token", app.getLichessTokenFromAccessToken)
 		}
 	}
 	{
