@@ -126,7 +126,7 @@ func (a *application) completeLogin(c echo.Context) error {
 	}
 
 	if sl[1] == "lichess" {
-		err = a.db.CreateLichessToken(id, code)
+		err = a.db.CreateLichessToken(id, accessToken)
 		if err != nil {
 			return err
 		}

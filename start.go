@@ -97,6 +97,7 @@ func (a *application) getLoginURL(c echo.Context, flowType, loginType, st string
 		options = append(options, oauth2.SetAuthURLParam("client_id", "random"))
 		options = append(options, oauth2.SetAuthURLParam("code_challenge_method", "S256"))
 		options = append(options, oauth2.SetAuthURLParam("code_challenge", challenge))
+		options = append(options, oauth2.SetAuthURLParam("scope", "board:play challenge:write challenge:read bot:play"))
 		session.Values["codeVerifier"] = verifier
 		session.Save(c.Request(), c.Response().Writer)
 	}
