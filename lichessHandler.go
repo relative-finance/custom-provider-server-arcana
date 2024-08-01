@@ -83,5 +83,6 @@ func (a *application) getLichessTokenFromAccessToken(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, map[string]string{
 		"lichessToken": lichessToken,
+		"lichessID":    lichessID,
 	})
 }
