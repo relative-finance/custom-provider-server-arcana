@@ -134,7 +134,7 @@ func main() {
 		_, ok := app.authMap["lichess"]
 		if ok {
 			e.GET("/get_lichess_token", app.getLichessToken)
-			e.GET("/get_lichess_token_from_access_token", app.getLichessTokenFromAccessToken)
+			e.GET("/lichess/token", app.getLichessTokenFromAccessToken)
 		}
 	}
 	{
