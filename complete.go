@@ -90,6 +90,13 @@ func (a *application) completeLogin(c echo.Context) error {
 		return err
 	}
 
+	if sl[1] == "lichess" {
+		err = a.db.CreateLichessToken(id, accessToken)
+		if err != nil {
+			return err
+		}
+	}
+
 	if sl[0] == "link" {
 		err := a.linkComplete(id, sl[1], sl[2])
 		if err != nil {
@@ -123,13 +130,6 @@ func (a *application) completeLogin(c echo.Context) error {
 	user, err = a.db.GetUserID(id, sl[1])
 	if err != nil {
 		return err
-	}
-
-	if sl[1] == "lichess" {
-		err = a.db.CreateLichessToken(id, accessToken)
-		if err != nil {
-			return err
-		}
 	}
 
 	// Get or insert user to db, get ID and replace UserID
