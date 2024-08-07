@@ -7,11 +7,38 @@ import (
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/google/uuid"
 )
+
+func generateUniqueUserID(db *sql.DB) (string, error) {
+	var userID string
+	const length = 255
+	for {
+		userID = uuid.New().String()
+		exists, err := checkIfUserIDExists(db, userID)
+		if err != nil {
+			return "", err
+		}
+		if !exists {
+			break
+		}
+	}
+	return userID, nil
+}
+
+func checkIfUserIDExists(db *sql.DB, userID string) (bool, error) {
+	var exists bool
+	query := "SELECT EXISTS (SELECT 1 FROM provider_users WHERE user_id = ?)"
+	err := db.QueryRow(query, userID).Scan(&exists)
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
+}
 
 type UserStore interface {
 	CreateNewUser(localUserID, provider string) error
-	GetUserID(localUserID, provider string) (int, error)
+	GetUserID(localUserID, provider string) (string, error)
 	LinkToExistingUser(localUserID, provider, userID string) error
 	GetConnectedAccounts(userID string) ([]Account, error)
 
@@ -62,7 +89,12 @@ func (s *MySQLDB) CreateNewUser(localUserID, provider string) error {
 		return err
 	}
 
-	rows, err = s.Query("INSERT INTO provider_users (user_id, local_id, provider) VALUE (?,?,?)", id, localUserID, provider)
+	userID, err := generateUniqueUserID(s.DB)
+	if err != nil {
+		return err
+	}
+
+	rows, err = s.Query("INSERT INTO provider_users (user_id, local_id, provider) VALUE (?,?,?)", userID, localUserID, provider)
 	if err != nil {
 		return err
 	}
@@ -70,14 +102,14 @@ func (s *MySQLDB) CreateNewUser(localUserID, provider string) error {
 	return nil
 }
 
-func (s *MySQLDB) GetUserID(localUserID, provider string) (int, error) {
-	var id int
+func (s *MySQLDB) GetUserID(localUserID, provider string) (string, error) {
+	var id string
 	err := s.QueryRow("SELECT user_id FROM provider_users WHERE local_id=? AND provider=?", localUserID, provider).Scan(&id)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return 0, nil
+			return "", nil
 		}
-		return 0, err
+		return "", err
 	}
 	return id, nil
 }

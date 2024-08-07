@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -121,7 +120,7 @@ func (a *application) completeLogin(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	if user == 0 {
+	if user == "" {
 		err := a.db.CreateNewUser(id, sl[1])
 		if err != nil {
 			return err
@@ -134,7 +133,7 @@ func (a *application) completeLogin(c echo.Context) error {
 
 	// Get or insert user to db, get ID and replace UserID
 	customClaims := customClaims{
-		UserID:    strconv.Itoa(user),
+		UserID:    user,
 		LoginType: sl[1],
 		LoginID:   id,
 	}
@@ -153,7 +152,7 @@ func (a *application) completeLogin(c echo.Context) error {
 	}
 	return c.JSON(http.StatusOK, map[string]string{
 		"token":      token,
-		"userID":     strconv.Itoa(user),
+		"userID":     user,
 		"loginType":  sl[1],
 		"loginToken": loginToken,
 	})
