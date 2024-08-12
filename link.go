@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -22,21 +25,60 @@ func (a *application) linkAccount(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "auth token required in header")
 	}
 
-	j, err := jwt.ParseSigned(token, []jose.SignatureAlgorithm{jose.ES256})
+	url := cfg.ShowdownUserService + "/access"
+	payload := []byte(fmt.Sprintf("{\"access_token\": \"%v\"}", token))
+	resp, err := http.Post(url, "application/json", bytes.NewBuffer(payload))
 	if err != nil {
-		fmt.Println(err)
 		return err
 	}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to authorize")
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	tokenMap := map[string]interface{}{}
+	if err := json.Unmarshal(body, &tokenMap); err != nil {
+		return err
+	}
+	showdownUserID, ok := tokenMap["ShowdownUserID"].(string)
+	if !ok {
+		return fmt.Errorf("failed to parse showdownUserID")
+	}
+	lichessID, ok := tokenMap["LichessID"].(string)
+	if !ok {
+		return fmt.Errorf("failed to parse showdownUserID")
+	}
+	steamUserID, ok := tokenMap["UserID"].(string)
+	if !ok {
+		return fmt.Errorf("failed to parse showdownUserID")
+	}
+
+	// j, err := jwt.ParseSigned(token, []jose.SignatureAlgorithm{jose.ES256})
+	// if err != nil {
+	// 	fmt.Println(err)
+	// 	return err
+	// }
 	claims := customClaims{}
-	err = j.Claims(&a.publicKey, &claims)
-	if err != nil {
-		fmt.Println(err)
-		return err
+	claims.UserID = showdownUserID
+	if lichessID == "" {
+		claims.LoginID = steamUserID
+		claims.LoginType = "steam"
 	}
+	if steamUserID == "" {
+		claims.LoginID = lichessID
+		claims.LoginType = "lichess"
+	}
+	// err = j.Claims(&a.publicKey, &claims)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// 	return err
+	// }
 
 	st := uniuri.NewLen(10)
 	a.cache.Set(st, claims, time.Minute*5)
-	url, err := a.getLoginURL(c, "link", loginType, st)
+	url, err = a.getLoginURL(c, "link", loginType, st)
 	if err != nil {
 		fmt.Println(err)
 		return err
@@ -115,9 +157,9 @@ func (a *application) getUser(c echo.Context) error {
 	for _, account := range accounts {
 		fmt.Println(account.Provider)
 		fmt.Println(account.ID)
-		if(account.Provider == "steam"){
+		if account.Provider == "steam" {
 			return c.JSON(http.StatusOK, map[string]string{
-				"steamID":      account.ID,
+				"steamID": account.ID,
 			})
 		}
 	}
