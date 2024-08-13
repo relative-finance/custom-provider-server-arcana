@@ -42,18 +42,23 @@ func (a *application) linkAccount(c echo.Context) error {
 	if err := json.Unmarshal(body, &tokenMap); err != nil {
 		return err
 	}
+	fmt.Println(tokenMap)
 	showdownUserID, ok := tokenMap["ShowdownUserID"].(string)
 	if !ok {
+		fmt.Println("failed to parse showdownUserID")
 		return fmt.Errorf("failed to parse showdownUserID")
 	}
 	lichessID, ok := tokenMap["LichessID"].(string)
 	if !ok {
-		return fmt.Errorf("failed to parse showdownUserID")
+		fmt.Println("failed to parse LichessID")
+		return fmt.Errorf("failed to parse LichessID")
 	}
 	steamUserID, ok := tokenMap["UserID"].(string)
 	if !ok {
-		return fmt.Errorf("failed to parse showdownUserID")
+		fmt.Println("failed to parse UserID")
+		return fmt.Errorf("failed to parse UserID")
 	}
+	fmt.Println("got all")
 
 	// j, err := jwt.ParseSigned(token, []jose.SignatureAlgorithm{jose.ES256})
 	// if err != nil {
@@ -70,6 +75,7 @@ func (a *application) linkAccount(c echo.Context) error {
 		claims.LoginID = lichessID
 		claims.LoginType = "lichess"
 	}
+	fmt.Println(claims)
 	// err = j.Claims(&a.publicKey, &claims)
 	// if err != nil {
 	// 	fmt.Println(err)
