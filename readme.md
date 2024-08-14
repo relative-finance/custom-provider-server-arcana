@@ -20,7 +20,9 @@ docker compose up -d --build
 - add the tables to the db instance
 ```
 docker exec -it 3216a9ff21ed bin/bash
-mysql -u myuser -p
-use mydatabase;
+psql -U myuser -d mydatabase
+\c mydatabase;
+\l
+
 <!-- create all the tables based on the commands in the comments in db.go -->
 ```

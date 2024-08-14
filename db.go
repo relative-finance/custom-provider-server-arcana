@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	_ "github.com/go-sql-driver/mysql"
 	"github.com/google/uuid"
+	_ "github.com/lib/pq" // PostgreSQL driver
 )
 
 func generateUniqueUserID(db *sql.DB) (string, error) {
@@ -28,7 +28,8 @@ func generateUniqueUserID(db *sql.DB) (string, error) {
 
 func checkIfUserIDExists(db *sql.DB, userID string) (bool, error) {
 	var exists bool
-	query := "SELECT EXISTS (SELECT 1 FROM provider_users WHERE user_id = ?)"
+	// Changed placeholder from '?' to '$1' for PostgreSQL
+	query := "SELECT EXISTS (SELECT 1 FROM provider_users WHERE user_id = $1)"
 	err := db.QueryRow(query, userID).Scan(&exists)
 	if err != nil {
 		return false, err
@@ -55,12 +56,13 @@ type UserStore interface {
 	GetLichessToken(name string) (string, error)
 }
 
-type MySQLDB struct {
+type PostgresDB struct {
 	*sql.DB
 }
 
-func connectToDB(connectionUrl string) (*MySQLDB, error) {
-	db, err := sql.Open("mysql", connectionUrl)
+func connectToDB(connectionUrl string) (*PostgresDB, error) {
+	// Changed driver name from 'mysql' to 'postgres'
+	db, err := sql.Open("postgres", connectionUrl)
 	if err != nil {
 		return nil, err
 	}
@@ -72,19 +74,15 @@ func connectToDB(connectionUrl string) (*MySQLDB, error) {
 	if err != nil {
 		return nil, err
 	}
-	store := &MySQLDB{db}
+	store := &PostgresDB{db}
 	return store, nil
 }
 
-func (s *MySQLDB) CreateNewUser(localUserID, provider string) error {
+func (s *PostgresDB) CreateNewUser(localUserID, provider string) error {
 
-	rows, err := s.Query("INSERT INTO users (name) VALUES (?)", localUserID)
-	if err != nil {
-		return err
-	}
-	rows.Close()
+	// Changed SQL syntax to match PostgreSQL
 	var id int
-	err = s.QueryRow("SELECT id FROM users WHERE name=?", localUserID).Scan(&id)
+	err := s.QueryRow("INSERT INTO users (name) VALUES ($1) RETURNING id", localUserID).Scan(&id)
 	if err != nil {
 		return err
 	}
@@ -94,17 +92,19 @@ func (s *MySQLDB) CreateNewUser(localUserID, provider string) error {
 		return err
 	}
 
-	rows, err = s.Query("INSERT INTO provider_users (user_id, local_id, provider) VALUE (?,?,?)", userID, localUserID, provider)
+	// Changed SQL syntax to match PostgreSQL
+	rows, err := s.Query("INSERT INTO provider_users (user_id, local_id, provider) VALUES ($1, $2, $3)", userID, localUserID, provider)
 	if err != nil {
 		return err
 	}
-	rows.Close()
+	defer rows.Close()
 	return nil
 }
 
-func (s *MySQLDB) GetUserID(localUserID, provider string) (string, error) {
+func (s *PostgresDB) GetUserID(localUserID, provider string) (string, error) {
 	var id string
-	err := s.QueryRow("SELECT user_id FROM provider_users WHERE local_id=? AND provider=?", localUserID, provider).Scan(&id)
+	// Changed placeholders from '?' to '$1', '$2'
+	err := s.QueryRow("SELECT user_id FROM provider_users WHERE local_id=$1 AND provider=$2", localUserID, provider).Scan(&id)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return "", nil
@@ -119,15 +119,18 @@ type Account struct {
 	ID       string `json:"id"`
 }
 
-func (s *MySQLDB) GetConnectedAccounts(userID string) ([]Account, error) {
+func (s *PostgresDB) GetConnectedAccounts(userID string) ([]Account, error) {
 	var data []Account
-	rows, err := s.Query("SELECT provider, local_id FROM provider_users WHERE user_id=?", userID)
+	// Changed placeholders from '?' to '$1'
+	rows, err := s.Query("SELECT provider, local_id FROM provider_users WHERE user_id=$1", userID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return data, nil
 		}
 		return nil, err
 	}
+	defer rows.Close()
+
 	for rows.Next() {
 		var provider, localID string
 		if err := rows.Scan(&provider, &localID); err != nil {
@@ -139,18 +142,20 @@ func (s *MySQLDB) GetConnectedAccounts(userID string) ([]Account, error) {
 	return data, nil
 }
 
-func (s *MySQLDB) LinkToExistingUser(localUserID, provider, userID string) error {
-	rows, err := s.Query("INSERT INTO provider_users (user_id, local_id, provider) VALUE (?,?,?)", userID, localUserID, provider)
+func (s *PostgresDB) LinkToExistingUser(localUserID, provider, userID string) error {
+	// Changed placeholders from '?' to '$1', '$2', '$3'
+	rows, err := s.Query("INSERT INTO provider_users (user_id, local_id, provider) VALUES ($1, $2, $3)", userID, localUserID, provider)
 	if err != nil {
 		return err
 	}
-	rows.Close()
+	defer rows.Close()
 	return nil
 }
 
-func (s *MySQLDB) AddSteamSession(clientID, redirect, state string) (err error) {
+func (s *PostgresDB) AddSteamSession(clientID, redirect, state string) (err error) {
+	// Changed placeholders from '?' to '$1', '$2', '$3'
 	rows, err := s.Query(`
-	INSERT INTO steam_login (client_id, redirect_uri, state) VALUES (?,?,?)
+	INSERT INTO steam_login (client_id, redirect_uri, state) VALUES ($1, $2, $3)
 	`, clientID, redirect, state)
 	if err != nil {
 		return
@@ -159,9 +164,10 @@ func (s *MySQLDB) AddSteamSession(clientID, redirect, state string) (err error) 
 	return
 }
 
-func (s *MySQLDB) GetSteamSession(state string) (session SteamSession, err error) {
+func (s *PostgresDB) GetSteamSession(state string) (session SteamSession, err error) {
+	// Changed placeholders from '?' to '$1'
 	err = s.QueryRow(`
-	SELECT id, client_id, redirect_uri, state, code FROM steam_login WHERE state = ?
+	SELECT id, client_id, redirect_uri, state, code FROM steam_login WHERE state = $1
 	`, state).Scan(&session.ID, &session.ClientID, &session.RedirectURI, &session.State, &session.Code)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -172,9 +178,10 @@ func (s *MySQLDB) GetSteamSession(state string) (session SteamSession, err error
 	return
 }
 
-func (s *MySQLDB) GetSteamSessionByCode(code string) (session SteamSession, err error) {
+func (s *PostgresDB) GetSteamSessionByCode(code string) (session SteamSession, err error) {
+	// Changed placeholders from '?' to '$1'
 	err = s.QueryRow(`
-	SELECT id, steam_id, client_id, redirect_uri, state, code FROM steam_login WHERE code = ?
+	SELECT id, steam_id, client_id, redirect_uri, state, code FROM steam_login WHERE code = $1
 	`, code).Scan(&session.ID, &session.SteamID, &session.ClientID, &session.RedirectURI, &session.State, &session.Code)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -184,9 +191,10 @@ func (s *MySQLDB) GetSteamSessionByCode(code string) (session SteamSession, err 
 	}
 	return
 }
-func (s *MySQLDB) UpdateSteamSession(id int, steamID, code string) error {
+func (s *PostgresDB) UpdateSteamSession(id int, steamID, code string) error {
+	// Changed placeholders from '?' to '$1', '$2', '$3'
 	rows, err := s.Query(`
-	UPDATE steam_login SET code = ?, steam_id = ? WHERE id = ?
+	UPDATE steam_login SET code = $1, steam_id = $2 WHERE id = $3
 	`, code, steamID, id)
 	if err != nil {
 		return err
@@ -196,8 +204,9 @@ func (s *MySQLDB) UpdateSteamSession(id int, steamID, code string) error {
 	return nil
 }
 
-func (s *MySQLDB) DeleteSteamSession(id int) (err error) {
-	rows, err := s.Query("DELETE FROM steam_login WHERE id = ?", id)
+func (s *PostgresDB) DeleteSteamSession(id int) (err error) {
+	// Changed placeholder from '?' to '$1'
+	rows, err := s.Query("DELETE FROM steam_login WHERE id = $1", id)
 	if err != nil {
 		return
 	}
@@ -205,10 +214,11 @@ func (s *MySQLDB) DeleteSteamSession(id int) (err error) {
 	return
 }
 
-func (s *MySQLDB) GetSteamProfile(steamID string) (*SteamPlayer, error) {
+func (s *PostgresDB) GetSteamProfile(steamID string) (*SteamPlayer, error) {
 	var profile SteamPlayer
+	// Changed placeholder from '?' to '$1'
 	err := s.QueryRow(`
-	SELECT name, avatar, steam_id FROM steam_profile WHERE steam_id = ?
+	SELECT name, avatar, steam_id FROM steam_profile WHERE steam_id = $1
 	`, steamID).Scan(&profile.Name, &profile.Avatar, &profile.SteamID)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -219,9 +229,10 @@ func (s *MySQLDB) GetSteamProfile(steamID string) (*SteamPlayer, error) {
 	return &profile, nil
 }
 
-func (s *MySQLDB) AddSteamProfile(v *SteamPlayer) error {
+func (s *PostgresDB) AddSteamProfile(v *SteamPlayer) error {
+	// Changed placeholders from '?' to '$1', '$2', '$3'
 	rows, err := s.Query(`
-	INSERT INTO steam_profile (name, avatar, steam_id) VALUES (?,?,?)
+	INSERT INTO steam_profile (name, avatar, steam_id) VALUES ($1, $2, $3)
 	`, v.Name, v.Avatar, v.SteamID)
 	if err != nil {
 		return err
@@ -230,15 +241,17 @@ func (s *MySQLDB) AddSteamProfile(v *SteamPlayer) error {
 	return nil
 }
 
-func (s *MySQLDB) CreateLichessToken(name string, lichessToken string) error {
+func (s *PostgresDB) CreateLichessToken(name string, lichessToken string) error {
 	var getLichessToken string
+	// Changed placeholder from '?' to '$1'
 	err := s.QueryRow(`
-	SELECT lichess_token FROM lichess_profile WHERE name = ?
+	SELECT lichess_token FROM lichess_profile WHERE name = $1
 	`, name).Scan(&getLichessToken)
 	if err != nil {
 		if err == sql.ErrNoRows {
+			// Changed placeholders from '?' to '$1', '$2'
 			rows, err := s.Query(`
-			INSERT INTO lichess_profile (name, lichess_token) VALUES (?,?)
+			INSERT INTO lichess_profile (name, lichess_token) VALUES ($1, $2)
 			`, name, lichessToken)
 			if err != nil {
 				return err
@@ -250,8 +263,9 @@ func (s *MySQLDB) CreateLichessToken(name string, lichessToken string) error {
 		}
 	} else {
 		if getLichessToken != lichessToken {
+			// Changed placeholders from '?' to '$1', '$2'
 			rows, err := s.Query(`
-				UPDATE lichess_profile SET lichess_token=? WHERE name=?
+				UPDATE lichess_profile SET lichess_token=$1 WHERE name=$2
 				`, lichessToken, name)
 			if err != nil {
 				return err
@@ -264,10 +278,11 @@ func (s *MySQLDB) CreateLichessToken(name string, lichessToken string) error {
 	}
 }
 
-func (s *MySQLDB) GetLichessToken(name string) (string, error) {
+func (s *PostgresDB) GetLichessToken(name string) (string, error) {
 	var lichessToken string
+	// Changed placeholder from '?' to '$1'
 	err := s.QueryRow(`
-	SELECT lichess_token FROM lichess_profile WHERE name=?;
+	SELECT lichess_token FROM lichess_profile WHERE name=$1;
 	`, name).Scan(&lichessToken)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -279,42 +294,38 @@ func (s *MySQLDB) GetLichessToken(name string) (string, error) {
 }
 
 /*
+-- PostgreSQL schema changes:
 
-CREATE TABLE `steam_login` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `client_id` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
-  `redirect_uri` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT '""',
-  `state` varchar(3000) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
-  `code` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT '""',
-  `steam_id` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT '""',
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+CREATE TABLE steam_login (
+  id SERIAL PRIMARY KEY,
+  client_id VARCHAR(255) NOT NULL,
+  redirect_uri VARCHAR(255) DEFAULT '',
+  state VARCHAR(3000) NOT NULL,
+  code VARCHAR(255) DEFAULT '',
+  steam_id VARCHAR(255) DEFAULT ''
+);
 
-CREATE TABLE `steam_profile` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `name` varchar(255) DEFAULT NULL,
-  `avatar` varchar(1000) DEFAULT NULL,
-  `steam_id` varchar(255) DEFAULT NULL,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+CREATE TABLE steam_profile (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(255) DEFAULT NULL,
+  avatar VARCHAR(1000) DEFAULT NULL,
+  steam_id VARCHAR(255) DEFAULT NULL
+);
 
-CREATE TABLE `lichess_profile` (
-  `name` varchar(255) NOT NULL,
-  `lichess_token` varchar(3000) NOT NULL,
-  PRIMARY KEY (`name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+CREATE TABLE lichess_profile (
+  name VARCHAR(255) PRIMARY KEY,
+  lichess_token VARCHAR(3000) NOT NULL
+);
 
-create table `provider_users` (
-`user_id` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
-`local_id` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
-`provider` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
-`id` int NOT NULL AUTO_INCREMENT,
-PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+CREATE TABLE provider_users (
+  user_id VARCHAR(255) NOT NULL,
+  local_id VARCHAR(255) NOT NULL,
+  provider VARCHAR(255) NOT NULL,
+  id SERIAL PRIMARY KEY
+);
 
-create table `users` (
-`id` int NOT NULL AUTO_INCREMENT,
-`name` varchar(255) DEFAULT NULL,
-PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(255) DEFAULT NULL
+);
 */

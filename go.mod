@@ -20,6 +20,7 @@ require (
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/klauspost/compress v1.17.7 // indirect
+	github.com/lib/pq v1.10.9 // indirect
 	github.com/onsi/ginkgo/v2 v2.16.0 // indirect
 	github.com/quic-go/qpack v0.4.0 // indirect
 	github.com/quic-go/quic-go v0.41.0 // indirect

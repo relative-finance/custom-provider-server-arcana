@@ -2,21 +2,20 @@ version: '3.8'
 
 services:
   db:
-    image: mysql:latest
+    image: postgres:latest
     logging:
       options:
         max-size: "200k"
         max-file: "1"
-    container_name: mysql_db
+    container_name: postgres_db
     environment:
-      MYSQL_ROOT_PASSWORD: rootpassword
-      MYSQL_DATABASE: mydatabase
-      MYSQL_USER: myuser
-      MYSQL_PASSWORD: mypassword
+      POSTGRES_DB: mydatabase
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: mypassword
     ports:
-      - "3306:3306"
+      - "5432:5432"
     volumes:
-      - db_data:/var/lib/mysql
+      - db_data:/var/lib/postgresql/data
   auth-service:
     build:
       context: .
