@@ -21,42 +21,49 @@ type completeParams struct {
 
 func (a *application) completeLogin(c echo.Context) error {
 	c.Response().Header().Set("Access-Control-Allow-Credentials", "true")
+	fmt.Println("complete login called")
 
 	headers := c.Request().Header
 	for name, values := range headers {
 		for _, value := range values {
-			fmt.Printf("%s: %s", name, value)
+			fmt.Println("%s: %s", name, value)
 		}
 	}
 	params := new(completeParams)
 	if err := c.Bind(params); err != nil {
+		fmt.Println(err)
 		return err
 	}
 
 	stateB64 := params.State
 	code := params.Code
 	if stateB64 == "" || code == "" {
-		return errors.New("Invalid query params")
+		fmt.Println("Invalid query params")
+		return errors.New("invalid query params")
 	}
 
 	ss, err := jose.ParseSigned(stateB64, []jose.SignatureAlgorithm{jose.ES256})
 	if err != nil {
+		fmt.Println("could not parse login state")
 		return echo.NewHTTPError(http.StatusForbidden, "could not parse login state")
 	}
 
 	verifiedData, err := ss.Verify(&a.publicKey)
 	if err != nil {
+		fmt.Println("could not verify login state")
 		return echo.NewHTTPError(http.StatusForbidden, "could not verify login state")
 	}
 
 	state := string(verifiedData)
 	sl := strings.Split(state, ":")
 	if len(sl) < 3 {
+		fmt.Println("unexpected state found")
 		return errors.New("unexpected state found")
 	}
 
 	p, ok := a.authMap[sl[1]]
 	if !ok {
+		fmt.Println("login type not available")
 		return errors.New("login type not available")
 	}
 
@@ -89,9 +96,24 @@ func (a *application) completeLogin(c echo.Context) error {
 		return err
 	}
 
+	if sl[0] == "link" {
+		userID, err := a.db.GetUserID(id, sl[1])
+		fmt.Println("getting current userID")
+		if err != nil {
+			return err
+		}
+		fmt.Println("userID")
+		fmt.Println(userID)
+		if userID != "" {
+			fmt.Println("This account is already linked")
+			return fmt.Errorf("this account is already linked")
+		}
+	}
+
 	if sl[1] == "lichess" {
 		err = a.db.CreateLichessToken(id, accessToken)
 		if err != nil {
+			fmt.Println(err)
 			return err
 		}
 	}
@@ -99,6 +121,7 @@ func (a *application) completeLogin(c echo.Context) error {
 	if sl[0] == "link" {
 		err := a.linkComplete(id, sl[1], sl[2])
 		if err != nil {
+			fmt.Println(err)
 			return err
 		}
 		return c.JSON(200, map[string]any{
@@ -118,16 +141,22 @@ func (a *application) completeLogin(c echo.Context) error {
 	// Get user from DB
 	user, err := a.db.GetUserID(id, sl[1])
 	if err != nil {
+		fmt.Println("1")
+		fmt.Println(err)
 		return err
 	}
 	if user == "" {
 		err := a.db.CreateNewUser(id, sl[1])
 		if err != nil {
+			fmt.Println("2")
+			fmt.Println(err)
 			return err
 		}
 	}
 	user, err = a.db.GetUserID(id, sl[1])
 	if err != nil {
+		fmt.Println("3")
+		fmt.Println(err)
 		return err
 	}
 

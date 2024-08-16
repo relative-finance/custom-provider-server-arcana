@@ -22,7 +22,11 @@ docker compose up -d --build
 docker exec -it 3216a9ff21ed bin/bash
 psql -U myuser -d mydatabase
 \c mydatabase;
-\l
-
+\dt
 <!-- create all the tables based on the commands in the comments in db.go -->
+```
+
+```
+\l
+CREATE DATABASE <database_name>
 ```

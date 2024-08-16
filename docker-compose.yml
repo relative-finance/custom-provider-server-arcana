@@ -21,7 +21,7 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - '81:80'
+      - '81:81'
     container_name: 'arcana-auth-service'
     depends_on:
       - db
