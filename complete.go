@@ -159,12 +159,25 @@ func (a *application) completeLogin(c echo.Context) error {
 		fmt.Println(err)
 		return err
 	}
+	secondID := ""
+	accounts, err := a.db.GetConnectedAccounts(id)
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+	for i := range accounts {
+		account := accounts[i]
+		if account.Provider != sl[1] {
+			secondID = account.ID
+		}
+	}
 
 	// Get or insert user to db, get ID and replace UserID
 	customClaims := customClaims{
 		UserID:    user,
 		LoginType: sl[1],
 		LoginID:   id,
+		LinkedID:  secondID,
 	}
 
 	token, err := jwt.Signed(a.signer).Claims(cl).Claims(customClaims).Serialize()
