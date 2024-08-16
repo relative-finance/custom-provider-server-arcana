@@ -160,7 +160,7 @@ func (a *application) completeLogin(c echo.Context) error {
 		return err
 	}
 	secondID := ""
-	accounts, err := a.db.GetConnectedAccounts(id)
+	accounts, err := a.db.GetConnectedAccounts(user)
 	if err != nil {
 		fmt.Println(err)
 		return err
