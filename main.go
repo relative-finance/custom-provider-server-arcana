@@ -90,7 +90,7 @@ func main() {
 	}
 
 	{
-		connectionStr := fmt.Sprintf("postgresql://%s:%s@%s:%s/%s?sslmode=disable", cfg.MySQLUser, cfg.MySQLPass, cfg.MySQLHost, cfg.MySQLPort, cfg.MySQLDB)
+		connectionStr := fmt.Sprintf("postgresql://%s:%s@%s:%s/%s", cfg.MySQLUser, cfg.MySQLPass, cfg.MySQLHost, cfg.MySQLPort, cfg.MySQLDB)
 		fmt.Println(connectionStr)
 		fmt.Println(google.Endpoint)
 		db, err := connectToDB(connectionStr)
