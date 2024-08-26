@@ -15,8 +15,7 @@ func (a *application) getLichessToken(c echo.Context) error {
 
 	apiKey := c.Request().Header.Get("X-Api-Key")
 	if apiKey != API_KEY {
-		http.Error(c.Response().Writer, "Invalid API key", http.StatusUnauthorized)
-		return fmt.Errorf("INVALID API KEY")
+		return echo.NewHTTPError(http.StatusUnauthorized, "Invalid API key")
 	}
 
 	userIDList := c.QueryParams()["userID"]
