@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	_ "github.com/lib/pq" // PostgreSQL driver
 )
 
@@ -54,6 +55,7 @@ type UserStore interface {
 
 	CreateLichessToken(name string, lichessToken string) error
 	GetLichessToken(name string) (string, error)
+	GetMultipleLichessTokens(names []string) (map[string]string, error)
 }
 
 type PostgresDB struct {
@@ -276,6 +278,35 @@ func (s *PostgresDB) CreateLichessToken(name string, lichessToken string) error 
 			return nil
 		}
 	}
+}
+
+func (s *PostgresDB) GetMultipleLichessTokens(names []string) (map[string]string, error) {
+	lichessTokens := make(map[string]string)
+
+	query := `
+	SELECT name, lichess_token FROM lichess_profile WHERE name = ANY($1);
+	`
+
+	rows, err := s.Query(query, pq.Array(names))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var name string
+		var lichessToken string
+		if err := rows.Scan(&name, &lichessToken); err != nil {
+			return nil, err
+		}
+		lichessTokens[name] = lichessToken
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return lichessTokens, nil
 }
 
 func (s *PostgresDB) GetLichessToken(name string) (string, error) {

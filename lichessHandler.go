@@ -19,19 +19,22 @@ func (a *application) getLichessToken(c echo.Context) error {
 		return fmt.Errorf("INVALID API KEY")
 	}
 
-	userID := c.QueryParam("userID")
-	if userID == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "userID query is expected")
+	userIDs := c.QueryParam("userIDs")
+	if userIDs == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "userIDs query is expected")
 	}
 
-	lichessToken, err := a.db.GetLichessToken(userID)
+	// Split the comma-separated string into a slice of userIDs
+	userIDList := strings.Split(userIDs, ",")
+
+	// Call the modified GetLichessTokens function to get the mapping
+	lichessTokens, err := a.db.GetMultipleLichessTokens(userIDList)
 	if err != nil {
 		return err
 	}
 
-	return c.JSON(http.StatusOK, map[string]string{
-		"lichessToken": lichessToken,
-	})
+	// Return the mapping as a JSON response
+	return c.JSON(http.StatusOK, lichessTokens)
 }
 
 func getAuth(header http.Header) (string, error) {
