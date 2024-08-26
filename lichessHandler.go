@@ -19,13 +19,10 @@ func (a *application) getLichessToken(c echo.Context) error {
 		return fmt.Errorf("INVALID API KEY")
 	}
 
-	userIDs := c.QueryParam("userIDs")
-	if userIDs == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "userIDs query is expected")
+	userIDList := c.QueryParams()["userID"]
+	if len(userIDList) == 0 {
+		return echo.NewHTTPError(http.StatusBadRequest, "userID query parameters are expected")
 	}
-
-	// Split the comma-separated string into a slice of userIDs
-	userIDList := strings.Split(userIDs, ",")
 
 	// Call the modified GetLichessTokens function to get the mapping
 	lichessTokens, err := a.db.GetMultipleLichessTokens(userIDList)
