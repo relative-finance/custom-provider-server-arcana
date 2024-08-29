@@ -124,10 +124,6 @@ func (a *application) completeLogin(c echo.Context) error {
 			fmt.Println(err)
 			return err
 		}
-		return c.JSON(200, map[string]any{
-			"linkComplete":  true,
-			"linkedAccount": sl[1],
-		})
 	}
 	// Create JWT
 	cl := jwt.Claims{
