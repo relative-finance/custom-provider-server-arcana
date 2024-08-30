@@ -106,7 +106,7 @@ func (a *application) completeLogin(c echo.Context) error {
 		fmt.Println(userID)
 		if userID != "" {
 			fmt.Println("This account is already linked")
-			return fmt.Errorf("this account is already linked")
+			return c.String(http.StatusBadRequest, "This account already exists")
 		}
 	}
 
