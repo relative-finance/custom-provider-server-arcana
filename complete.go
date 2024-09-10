@@ -67,27 +67,33 @@ func (a *application) completeLogin(c echo.Context) error {
 		return errors.New("login type not available")
 	}
 
-	oauth2Token, err := p.conf.Exchange(context.Background(), code)
-	if err != nil {
-		if err.Error() == "oauth2: \"invalid_request\" \"code_verifier required\"" {
-			session, _ := Store.Get(c.Request(), "cookie-name")
-
-			verifier, ok := session.Values["codeVerifier"].(string)
-			if !ok {
-				fmt.Println(verifier)
-				fmt.Println("veirfier not found")
-				return err
-			}
-			oauth2Token, err = p.conf.Exchange(context.Background(), code, oauth2.SetAuthURLParam("code_verifier", verifier))
-			if err != nil {
-				fmt.Println("something: %s", err.Error())
-				return err
-			}
-		} else {
-			fmt.Println("exchange:", err, "code:", code)
+	session, _ := Store.Get(c.Request(), "cookie-name")
+	verifier, ok := session.Values["codeVerifier"].(string)
+	var oauth2Token *oauth2.Token
+	if !ok || verifier == "" {
+		oauth2Token, err = p.conf.Exchange(context.Background(), code)
+		return err
+	} else {
+		oauth2Token, err = p.conf.Exchange(context.Background(), code, oauth2.SetAuthURLParam("code_verifier", verifier))
+		if err != nil {
+			fmt.Println("something: %s", err.Error())
 			return err
 		}
 	}
+	// if err != nil {
+	// 	if err.Error() == "oauth2: \"invalid_request\" \"code_verifier required\"" {
+	// 		session, _ := Store.Get(c.Request(), "cookie-name")
+
+	// 		oauth2Token, err = p.conf.Exchange(context.Background(), code, oauth2.SetAuthURLParam("code_verifier", verifier))
+	// 		if err != nil {
+	// 			fmt.Println("something: %s", err.Error())
+	// 			return err
+	// 		}
+	// 	} else {
+	// 		fmt.Println("exchange:", err, "code:", code)
+	// 		return err
+	// 	}
+	// }
 
 	accessToken := oauth2Token.AccessToken
 	id, err := p.conf.getUserInfo(accessToken)
