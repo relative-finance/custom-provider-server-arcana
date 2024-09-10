@@ -72,8 +72,16 @@ func (a *application) completeLogin(c echo.Context) error {
 	var oauth2Token *oauth2.Token
 	if !ok || verifier == "" {
 		oauth2Token, err = p.conf.Exchange(context.Background(), code)
-		return err
+		if err != nil {
+			fmt.Println("something: %s", err.Error())
+			return err
+		}
 	} else {
+		fmt.Println("calling lichess")
+		fmt.Println(code)
+		fmt.Println(verifier)
+		fmt.Println(p.conf.ClientID)
+		fmt.Println(p.conf.RedirectURL)
 		oauth2Token, err = p.conf.Exchange(context.Background(), code, oauth2.SetAuthURLParam("code_verifier", verifier))
 		if err != nil {
 			fmt.Println("something: %s", err.Error())
