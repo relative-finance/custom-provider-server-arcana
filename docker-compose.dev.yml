@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  auth-service-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - '95:81'
+    container_name: 'arcana-auth-service-dev'
+    restart: always
+    volumes:
+      - ./:/app
+    logging:
+      options:
+        max-size: "200k"
+        max-file: "1"
+

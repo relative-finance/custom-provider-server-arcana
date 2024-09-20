@@ -43,7 +43,7 @@ type SteamSession struct {
 
 type LichessUserInfo struct {
 	LichessId    string `json:"lichessId"`
-	LichessToken string `json:"LichessToken"`
+	LichessToken string `json:"lichessToken"`
 }
 
 type GetLichessUserInfoRes map[string]LichessUserInfo

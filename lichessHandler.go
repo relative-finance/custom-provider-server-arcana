@@ -20,21 +20,20 @@ func (a *application) getLichessToken(c echo.Context) error {
 
 	userIDList := c.QueryParams()["userID"]
 	showdownUserIDList := c.QueryParams()["showdownUserID"]
-	if len(userIDList) == 0 || len(showdownUserIDList) == 0 {
+	if len(userIDList) == 0 && len(showdownUserIDList) == 0 {
 		return echo.NewHTTPError(http.StatusBadRequest, "userID or showdownUserID query parameters are expected")
 	}
 
 	var lichessTokens GetLichessUserInfoRes
 	var err error
-	var isShowdownUserIds bool
 
 	if len(userIDList) != 0 {
-		isShowdownUserIds = false
+		lichessTokens, err = a.db.GetMultipleLichessTokens(userIDList, false)
 	} else {
-		isShowdownUserIds = true
+		lichessTokens, err = a.db.GetMultipleLichessTokens(showdownUserIDList, true)
 	}
 
-	if lichessTokens, err = a.db.GetMultipleLichessTokens(userIDList, isShowdownUserIds); err != nil {
+	if err != nil {
 		fmt.Println("failed to retrieve tokens", err)
 		return c.JSON(http.StatusInternalServerError, "Failed to retrieve tokens")
 	}
