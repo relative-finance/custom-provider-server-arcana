@@ -55,7 +55,7 @@ type UserStore interface {
 
 	CreateLichessToken(name string, lichessToken string) error
 	GetLichessToken(name string) (string, error)
-	GetMultipleLichessTokens(names []string) (map[string]string, error)
+	GetMultipleLichessTokens(names []string, useUserIdQuery bool) (GetLichessUserInfoRes, error)
 }
 
 type PostgresDB struct {
@@ -280,12 +280,23 @@ func (s *PostgresDB) CreateLichessToken(name string, lichessToken string) error 
 	}
 }
 
-func (s *PostgresDB) GetMultipleLichessTokens(names []string) (map[string]string, error) {
-	lichessTokens := make(map[string]string)
+func (s *PostgresDB) GetMultipleLichessTokens(names []string, isShowdownUserIdQuery bool) (GetLichessUserInfoRes, error) {
+	lichessTokens := make(GetLichessUserInfoRes)
 
-	query := `
+	var query string
+
+	if isShowdownUserIdQuery {
+		query = `
+	SELECT u.user_id, l.name, l.lichess_token
+	FROM provider_users u
+	JOIN lichess_profile l ON u.local_id = l.name
+	WHERE u.user_id = ANY($1);
+	`
+	} else {
+		query = `
 	SELECT name, lichess_token FROM lichess_profile WHERE name = ANY($1);
 	`
+	}
 
 	rows, err := s.Query(query, pq.Array(names))
 	if err != nil {
@@ -293,13 +304,25 @@ func (s *PostgresDB) GetMultipleLichessTokens(names []string) (map[string]string
 	}
 	defer rows.Close()
 
-	for rows.Next() {
-		var name string
-		var lichessToken string
-		if err := rows.Scan(&name, &lichessToken); err != nil {
-			return nil, err
+	if isShowdownUserIdQuery {
+		for rows.Next() {
+			var showdownUserId string
+			var lichessId string
+			var lichessToken string
+			if err := rows.Scan(&showdownUserId, &lichessId, &lichessToken); err != nil {
+				return nil, err
+			}
+			lichessTokens[showdownUserId] = LichessUserInfo{LichessId: lichessId, LichessToken: lichessToken}
 		}
-		lichessTokens[name] = lichessToken
+	} else {
+		for rows.Next() {
+			var name string
+			var lichessToken string
+			if err := rows.Scan(&name, &lichessToken); err != nil {
+				return nil, err
+			}
+			lichessTokens[name] = LichessUserInfo{LichessId: name, LichessToken: lichessToken}
+		}
 	}
 
 	if err := rows.Err(); err != nil {

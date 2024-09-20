@@ -155,7 +155,7 @@ func main() {
 			e.POST("/steam/oauth2/token", steamHandler.TokenExchange)
 			e.GET("/steam/oauth2/verify", steamHandler.Verify)
 		}
-		_ = e.Start(fmt.Sprintf(":%s", cfg.ListenPort))
+		_ = e.Start(fmt.Sprintf("Started server on :%s", cfg.ListenPort))
 	}
 }
 

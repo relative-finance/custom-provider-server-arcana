@@ -40,3 +40,10 @@ type SteamSession struct {
 	State       string
 	Code        string
 }
+
+type LichessUserInfo struct {
+	LichessId    string `json:"lichessId"`
+	LichessToken string `json:"LichessToken"`
+}
+
+type GetLichessUserInfoRes map[string]LichessUserInfo
