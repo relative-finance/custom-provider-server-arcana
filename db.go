@@ -298,8 +298,6 @@ func (s *PostgresDB) GetMultipleLichessTokens(names []string, isShowdownUserIdQu
 	`
 	}
 
-	fmt.Println("isShowdownUserIdQuery", isShowdownUserIdQuery, names)
-
 	rows, err := s.Query(query, pq.Array(names))
 	if err != nil {
 		return nil, err
