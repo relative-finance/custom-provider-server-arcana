@@ -2,3 +2,4 @@
 *.toml
 
 !config.example.toml
+tmp

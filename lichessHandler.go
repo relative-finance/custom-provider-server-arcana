@@ -19,14 +19,23 @@ func (a *application) getLichessToken(c echo.Context) error {
 	}
 
 	userIDList := c.QueryParams()["userID"]
-	if len(userIDList) == 0 {
-		return echo.NewHTTPError(http.StatusBadRequest, "userID query parameters are expected")
+	showdownUserIDList := c.QueryParams()["showdownUserID"]
+	if len(userIDList) == 0 && len(showdownUserIDList) == 0 {
+		return echo.NewHTTPError(http.StatusBadRequest, "userID or showdownUserID query parameters are expected")
 	}
 
-	// Call the modified GetLichessTokens function to get the mapping
-	lichessTokens, err := a.db.GetMultipleLichessTokens(userIDList)
+	var lichessTokens GetLichessUserInfoRes
+	var err error
+
+	if len(userIDList) != 0 {
+		lichessTokens, err = a.db.GetMultipleLichessTokens(userIDList, false)
+	} else {
+		lichessTokens, err = a.db.GetMultipleLichessTokens(showdownUserIDList, true)
+	}
+
 	if err != nil {
-		return err
+		fmt.Println("failed to retrieve tokens", err)
+		return c.JSON(http.StatusInternalServerError, "Failed to retrieve tokens")
 	}
 
 	// Return the mapping as a JSON response

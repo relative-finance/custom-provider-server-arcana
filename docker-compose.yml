@@ -1,21 +1,6 @@
 version: '3.8'
 
 services:
-  db:
-    image: postgres:latest
-    logging:
-      options:
-        max-size: "200k"
-        max-file: "1"
-    container_name: postgres_db
-    environment:
-      POSTGRES_DB: mydatabase
-      POSTGRES_USER: myuser
-      POSTGRES_PASSWORD: mypassword
-    ports:
-      - "5432:5432"
-    volumes:
-      - db_data:/var/lib/postgresql/data
   auth-service:
     build:
       context: .
@@ -23,18 +8,9 @@ services:
     ports:
       - '81:81'
     container_name: 'arcana-auth-service'
-    depends_on:
-      - db
-    # environment:
-    #   - COINGECKO_API_KEY=$COINGECKO_API_KEY
-    #   - QUOTIENT_API_KEY=$QUOTIENT_API_KEY
-    #   - MONGODB_URI=$MONGODB_URI
     restart: always
     logging:
       options:
         max-size: "200k"
         max-file: "1"
 
-
-volumes:
-  db_data:
