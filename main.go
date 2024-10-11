@@ -7,11 +7,14 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/BurntSushi/toml"
+	"github.com/arcana-network/groot/logger"
 	"github.com/go-jose/go-jose/v4"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/patrickmn/go-cache"
 	"golang.org/x/oauth2/google"
 )
 
@@ -24,13 +27,19 @@ type application struct {
 	authMap     map[string]*ProviderDetails
 	signer      jose.Signer
 	publicKey   ecdsa.PublicKey
-	jwtIssuer   string
+	selfURL     string
 	jwtAudience string
+	cache       cache.Cache
+	db          UserStore
 }
 
+var API_KEY string
+var cfg = new(configuration)
+
 func main() {
-	cfg := new(configuration)
+	// cfg := new(configuration)
 	app := new(application)
+	app.cache = *cache.New(cache.NoExpiration, 5*time.Minute)
 
 	{
 		// Reading config
@@ -46,6 +55,8 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
+
+		API_KEY = cfg.Apikey
 	}
 
 	{
@@ -74,8 +85,19 @@ func main() {
 
 		app.publicKey = key.PublicKey
 		app.signer = signer
-		app.jwtIssuer = cfg.JwtIssuer
+		app.selfURL = cfg.SelfURL
 		app.jwtAudience = cfg.JwtAudience
+	}
+
+	{
+		connectionStr := fmt.Sprintf("postgresql://%s:%s@%s:%s/%s", cfg.MySQLUser, cfg.MySQLPass, cfg.MySQLHost, cfg.MySQLPort, cfg.MySQLDB)
+		fmt.Println(connectionStr)
+		fmt.Println(google.Endpoint)
+		db, err := connectToDB(connectionStr)
+		if err != nil {
+			panic(err)
+		}
+		app.db = db
 	}
 
 	{
@@ -102,10 +124,39 @@ func main() {
 	e := echo.New()
 	e.Use(middleware.CORS())
 	e.GET("/start", app.startLogin)
+	e.GET("/link/:provider", app.linkAccount)
+	e.GET("/connected-accounts", app.connectedAccounts)
 	e.POST("/complete", app.completeLogin)
 	e.GET("/.well-known/jwks.json", app.JWKSEndpoint)
+	e.GET("/user", app.getUser)
 
-	_ = e.Start(fmt.Sprintf(":%s", cfg.ListenPort))
+	{
+		_, ok := app.authMap["lichess"]
+		if ok {
+			e.GET("/get_lichess_token", app.getLichessToken)
+			e.GET("/lichess/token", app.getLichessTokenFromAccessToken)
+		}
+	}
+	{
+		steamConfig, ok := app.authMap["steam"]
+		if ok {
+			steamHandler := NewSteamHandler(SteamConfig{
+				store:        app.db,
+				redirectURL:  cfg.RedirectURL,
+				selfURL:      app.selfURL,
+				clientID:     steamConfig.conf.ClientID,
+				clientSecret: steamConfig.conf.ClientSecret,
+				signer:       app.signer,
+				publicKey:    &app.publicKey,
+			}, logger.NewTestLogger())
+
+			e.GET("/steam/oauth2/authorize", steamHandler.Authorize)
+			e.GET("/steam/oauth2/redirect", steamHandler.Redirect)
+			e.POST("/steam/oauth2/token", steamHandler.TokenExchange)
+			e.GET("/steam/oauth2/verify", steamHandler.Verify)
+		}
+		_ = e.Start(fmt.Sprintf(":%s", cfg.ListenPort))
+	}
 }
 
 func (a *application) JWKSEndpoint(c echo.Context) error {
@@ -137,6 +188,14 @@ func (app *application) getConfig(providerConf ProviderConfig) (*OAuth2Config, e
 	case "twitch":
 		c.Endpoint = TwitchEndpoint
 		c.userInfoURL = TWITCH_USER_INFO_URL
+		return c, nil
+	case "steam":
+		c.Endpoint = getSteamEndpoint(app.selfURL)
+		c.userInfoURL = getSteamUserInfoURL(app.selfURL)
+		return c, nil
+	case "lichess":
+		c.Endpoint = LichessEndpoint
+		c.userInfoURL = LICHESS_USER_INFO_URL
 		return c, nil
 	}
 

@@ -1,8 +1,15 @@
 KeyFilePath = "./priv.key"
 ListenPort = "3001"
-RedirectURL = "http://localhost:5173/complete"
+RedirectURL = ""
 JwtAudience = ""
-JwtIssuer = ""
+SelfURL = "https://abc.xyz"
+MySQLHost = "localhost"
+MySQLPort = "3306"
+MySQLUser = ""
+MySQLPass = ""
+MySQLDB = ""
+Apikey = ""
+ShowdownUserService = ""
 
 [[Verifiers]]
 Name = "google"
