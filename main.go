@@ -11,6 +11,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/arcana-network/groot/logger"
+	"github.com/gin-gonic/gin"
 	"github.com/go-jose/go-jose/v4"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -129,6 +130,7 @@ func main() {
 	e.POST("/complete", app.completeLogin)
 	e.GET("/.well-known/jwks.json", app.JWKSEndpoint)
 	e.GET("/user", app.getUser)
+	e.GET("/health", healthHandler)
 
 	{
 		_, ok := app.authMap["lichess"]
@@ -200,4 +202,8 @@ func (app *application) getConfig(providerConf ProviderConfig) (*OAuth2Config, e
 	}
 
 	return nil, fmt.Errorf("%s provider not supported", providerConf.Name)
+}
+
+func healthHandler(c *gin.Context) {
+	c.Status(200)
 }
