@@ -11,7 +11,6 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/arcana-network/groot/logger"
-	"github.com/gin-gonic/gin"
 	"github.com/go-jose/go-jose/v4"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -204,6 +203,7 @@ func (app *application) getConfig(providerConf ProviderConfig) (*OAuth2Config, e
 	return nil, fmt.Errorf("%s provider not supported", providerConf.Name)
 }
 
-func healthHandler(c *gin.Context) {
-	c.Status(200)
+func healthHandler(c echo.Context) error {
+	c.NoContent(http.StatusOK)
+	return nil
 }
