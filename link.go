@@ -178,25 +178,29 @@ func (a *application) getUser(c echo.Context) error {
 }
 
 func (a *application) telegramAuth(c echo.Context) error {
-	token := c.QueryParam("token")
+	token := c.Request().Header.Get("Authorization")
 	if token == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "auth token required")
 	}
-	queryParams := c.QueryParams()
-	hash := queryParams.Get("hash")
-	if hash == "" {
+
+	var telegramData struct {
+		Hash string            `json:"hash"`
+		Data map[string]string `json:"data"`
+	}
+
+	if err := c.Bind(&telegramData); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid request body")
+	}
+
+	if telegramData.Hash == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "hash is required")
 	}
-	dataToCheck := make(map[string]string)
-	for key, values := range queryParams {
-		if key != "hash" && len(values) > 0 {
-			dataToCheck[key] = values[0]
-		}
-	}
-	if !verifyTelegramAuth(dataToCheck, hash, cfg.TelegramBotToken) {
+
+	if !verifyTelegramAuth(telegramData.Data, telegramData.Hash, cfg.TelegramBotToken) {
 		return echo.NewHTTPError(http.StatusUnauthorized, "invalid telegram authentication")
 	}
-	telegramUserID := dataToCheck["id"]
+
+	telegramUserID := telegramData.Data["id"]
 	if telegramUserID == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "telegram user id not found")
 	}
@@ -226,22 +230,41 @@ func (a *application) telegramAuth(c echo.Context) error {
 		return fmt.Errorf("failed to parse showdownUserID")
 	}
 
+	existingTelegramID, err := a.db.GetLinkedTelegramID(showdownUserID)
+	if err != nil {
+		return fmt.Errorf("failed to check existing telegram link: %w", err)
+	}
+	if existingTelegramID != "" && existingTelegramID != telegramUserID {
+		return echo.NewHTTPError(http.StatusConflict, "showdownUserID is already linked to another telegram user")
+	}
+
+	existingShowdownID, err := a.db.GetLinkedShowdownID(telegramUserID)
+	if err != nil {
+		return fmt.Errorf("failed to check existing showdown link: %w", err)
+	}
+
+	if existingShowdownID != "" && existingShowdownID != showdownUserID {
+		return echo.NewHTTPError(http.StatusConflict, "telegramUserID is already linked to another showdown user")
+	}
+
 	err = a.db.LinkToExistingUser(telegramUserID, "telegram", showdownUserID)
 	if err != nil {
 		return fmt.Errorf("failed to link accounts: %w", err)
 	}
 
 	customClaims := customClaims{
-		UserID:    showdownUserID,
-		LoginType: "telegram",
-		LoginID:   telegramUserID,
-		LinkedID:  "",
+		UserID:     showdownUserID,
+		LoginType:  "telegram",
+		LoginID:    telegramUserID,
+		LinkedID:   "",
+		TelegramID: telegramUserID,
 	}
 	return c.JSON(http.StatusOK, map[string]string{
-		"user_id":    customClaims.UserID,
-		"login_id":   customClaims.LoginID,
-		"login_type": customClaims.LoginType,
-		"linked_id":  customClaims.LinkedID,
+		"user_id":     customClaims.UserID,
+		"login_id":    customClaims.LoginID,
+		"login_type":  customClaims.LoginType,
+		"linked_id":   customClaims.LinkedID,
+		"telegram_id": customClaims.TelegramID,
 	})
 }
 

@@ -27,10 +27,11 @@ type ProviderConfig struct {
 }
 
 type customClaims struct {
-	UserID    string `json:"user_id"`
-	LoginID   string `json:"login_id"`
-	LoginType string `json:"login_type"`
-	LinkedID  string `json:"linked_id"`
+	UserID     string `json:"user_id"`
+	LoginID    string `json:"login_id"`
+	LoginType  string `json:"login_type"`
+	LinkedID   string `json:"linked_id"`
+	TelegramID string `json:"telegram_id"`
 }
 
 type SteamSession struct {
