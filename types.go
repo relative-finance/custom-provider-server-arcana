@@ -14,6 +14,7 @@ type configuration struct {
 	Apikey              string
 	ShowdownUserService string
 	Verifiers           []ProviderConfig
+	TelegramBotToken    string
 }
 
 type ProviderConfig struct {

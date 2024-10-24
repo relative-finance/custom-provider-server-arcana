@@ -2,11 +2,16 @@ package main
 
 import (
 	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/dchest/uniuri"
@@ -170,4 +175,102 @@ func (a *application) getUser(c echo.Context) error {
 		}
 	}
 	return echo.NewHTTPError(http.StatusInternalServerError)
+}
+
+func (a *application) telegramAuth(c echo.Context) error {
+	token := c.QueryParam("token")
+	if token == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "auth token required")
+	}
+	queryParams := c.QueryParams()
+	hash := queryParams.Get("hash")
+	if hash == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "hash is required")
+	}
+	dataToCheck := make(map[string]string)
+	for key, values := range queryParams {
+		if key != "hash" && len(values) > 0 {
+			dataToCheck[key] = values[0]
+		}
+	}
+	if !verifyTelegramAuth(dataToCheck, hash, cfg.TelegramBotToken) {
+		return echo.NewHTTPError(http.StatusUnauthorized, "invalid telegram authentication")
+	}
+	telegramUserID := dataToCheck["id"]
+	if telegramUserID == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "telegram user id not found")
+	}
+
+	url := cfg.ShowdownUserService + "/access"
+	payload := []byte(fmt.Sprintf("{\"access_token\": \"%v\"}", token))
+	resp, err := http.Post(url, "application/json", bytes.NewBuffer(payload))
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to authorize")
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	tokenMap := map[string]interface{}{}
+	if err := json.Unmarshal(body, &tokenMap); err != nil {
+		return err
+	}
+
+	showdownUserID, ok := tokenMap["ShowdownUserID"].(string)
+	if !ok {
+		return fmt.Errorf("failed to parse showdownUserID")
+	}
+
+	err = a.db.LinkToExistingUser(telegramUserID, "telegram", showdownUserID)
+	if err != nil {
+		return fmt.Errorf("failed to link accounts: %w", err)
+	}
+
+	customClaims := customClaims{
+		UserID:    showdownUserID,
+		LoginType: "telegram",
+		LoginID:   telegramUserID,
+		LinkedID:  "",
+	}
+	return c.JSON(http.StatusOK, map[string]string{
+		"user_id":    customClaims.UserID,
+		"login_id":   customClaims.LoginID,
+		"login_type": customClaims.LoginType,
+		"linked_id":  customClaims.LinkedID,
+	})
+}
+
+func verifyTelegramAuth(data map[string]string, hash, botToken string) bool {
+	h := sha256.New()
+	h.Write([]byte(botToken))
+	secret := h.Sum(nil)
+
+	keys := make([]string, 0, len(data))
+	for k := range data {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	var checkString strings.Builder
+	for i, k := range keys {
+		if data[k] != "" {
+			if i > 0 {
+				checkString.WriteString("\n")
+			}
+			checkString.WriteString(k)
+			checkString.WriteString("=")
+			checkString.WriteString(data[k])
+		}
+	}
+
+	mac := hmac.New(sha256.New, secret)
+	mac.Write([]byte(checkString.String()))
+	expectedHash := hex.EncodeToString(mac.Sum(nil))
+
+	return expectedHash == hash
 }

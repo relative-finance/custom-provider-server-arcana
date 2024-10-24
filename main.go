@@ -129,6 +129,7 @@ func main() {
 	e.POST("/complete", app.completeLogin)
 	e.GET("/.well-known/jwks.json", app.JWKSEndpoint)
 	e.GET("/user", app.getUser)
+	e.GET("/auth/telegram", app.telegramAuth)
 
 	{
 		_, ok := app.authMap["lichess"]
@@ -196,6 +197,10 @@ func (app *application) getConfig(providerConf ProviderConfig) (*OAuth2Config, e
 	case "lichess":
 		c.Endpoint = LichessEndpoint
 		c.userInfoURL = LICHESS_USER_INFO_URL
+		return c, nil
+	case "telegram":
+		c.Endpoint = TelegramEndpoint
+		c.userInfoURL = TELEGRAM_USER_INFO_URL
 		return c, nil
 	}
 
