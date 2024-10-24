@@ -56,6 +56,8 @@ type UserStore interface {
 	CreateLichessToken(name string, lichessToken string) error
 	GetLichessToken(name string) (string, error)
 	GetMultipleLichessTokens(names []string, useUserIdQuery bool) (GetLichessUserInfoRes, error)
+	GetLinkedTelegramID(showdownUserID string) (string, error)
+	GetLinkedShowdownID(telegramUserID string) (string, error)
 }
 
 type PostgresDB struct {
@@ -100,6 +102,11 @@ func (s *PostgresDB) CreateNewUser(localUserID, provider string) error {
 		return err
 	}
 	defer rows.Close()
+
+	// Add support for Telegram provider
+	if provider == "telegram" {
+	}
+
 	return nil
 }
 
@@ -345,6 +352,34 @@ func (s *PostgresDB) GetLichessToken(name string) (string, error) {
 		return "", err
 	}
 	return lichessToken, nil
+}
+
+func (s *PostgresDB) GetLinkedTelegramID(showdownUserID string) (string, error) {
+	var telegramID string
+	err := s.QueryRow(`
+		SELECT local_id FROM provider_users WHERE user_id = $1 AND provider = 'telegram'
+	`, showdownUserID).Scan(&telegramID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", nil
+		}
+		return "", err
+	}
+	return telegramID, nil
+}
+
+func (s *PostgresDB) GetLinkedShowdownID(telegramUserID string) (string, error) {
+	var showdownUserID string
+	err := s.QueryRow(`
+		SELECT user_id FROM provider_users WHERE local_id = $1 AND provider = 'telegram'
+	`, telegramUserID).Scan(&showdownUserID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", nil
+		}
+		return "", err
+	}
+	return showdownUserID, nil
 }
 
 /*
