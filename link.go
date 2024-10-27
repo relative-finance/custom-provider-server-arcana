@@ -230,7 +230,17 @@ func (a *application) telegramAuth(c echo.Context) error {
 		return fmt.Errorf("failed to parse showdownUserID")
 	}
 
-	existingTelegramID, err := a.db.GetLinkedTelegramID(showdownUserID)
+	lichessID, ok := tokenMap["LichessID"].(string)
+	if !ok {
+		return fmt.Errorf("failed to parse LichessID")
+	}
+
+	steamUserID, ok := tokenMap["UserID"].(string)
+	if !ok {
+		return fmt.Errorf("failed to parse UserID")
+	}
+
+	existingTelegramID, err := a.db.GetLinkedTelegramIDFromShowdownID(showdownUserID)
 	if err != nil {
 		return fmt.Errorf("failed to check existing telegram link: %w", err)
 	}
@@ -238,7 +248,7 @@ func (a *application) telegramAuth(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusConflict, "showdownUserID is already linked to another telegram user")
 	}
 
-	existingShowdownID, err := a.db.GetLinkedShowdownID(telegramUserID)
+	existingShowdownID, err := a.db.GetLinkedShowdownIDFromTelegramID(telegramUserID)
 	if err != nil {
 		return fmt.Errorf("failed to check existing showdown link: %w", err)
 	}
@@ -247,18 +257,26 @@ func (a *application) telegramAuth(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusConflict, "telegramUserID is already linked to another showdown user")
 	}
 
-	err = a.db.LinkToExistingUser(telegramUserID, "telegram", showdownUserID)
+	err = a.db.LinkToExistingUser(telegramUserID, TELEGRAM_PROVIDER, showdownUserID)
 	if err != nil {
 		return fmt.Errorf("failed to link accounts: %w", err)
 	}
 
 	customClaims := customClaims{
 		UserID:     showdownUserID,
-		LoginType:  "telegram",
-		LoginID:    telegramUserID,
-		LinkedID:   "",
+		LoginType:  TELEGRAM_PROVIDER,
 		TelegramID: telegramUserID,
 	}
+
+	if lichessID == "" {
+		customClaims.LoginID = steamUserID 
+		customClaims.LinkedID = lichessID
+	}
+	if steamUserID == "" {
+		customClaims.LoginID = lichessID
+		customClaims.LinkedID = steamUserID
+	}
+
 	return c.JSON(http.StatusOK, map[string]string{
 		"user_id":     customClaims.UserID,
 		"login_id":    customClaims.LoginID,

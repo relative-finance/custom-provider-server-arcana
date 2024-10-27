@@ -163,7 +163,7 @@ func (a *application) completeLogin(c echo.Context) error {
 		}
 	}
 
-	telegramID, err := a.db.GetLinkedTelegramID(user)
+	telegramID, err := a.db.GetLinkedTelegramIDFromShowdownID(user)
 	if err != nil {
 		fmt.Println("Error fetching Telegram ID:", err)
 		return err
