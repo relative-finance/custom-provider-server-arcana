@@ -184,23 +184,41 @@ func (a *application) telegramAuth(c echo.Context) error {
 	}
 
 	var telegramData struct {
-		Hash string            `json:"hash"`
-		Data map[string]string `json:"data"`
+		User struct {
+			ID        int64  `json:"id"`
+			FirstName string `json:"first_name"`
+			Username  string `json:"username"`
+			PhotoURL  string `json:"photo_url"`
+			AuthDate  int64  `json:"auth_date"`
+			Hash      string `json:"hash"`
+		} `json:"user"`
 	}
 
 	if err := c.Bind(&telegramData); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid request body")
 	}
 
-	if telegramData.Hash == "" {
+	if telegramData.User.Hash == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "hash is required")
 	}
 
-	if !verifyTelegramAuth(telegramData.Data, telegramData.Hash, cfg.TelegramBotToken) {
+	dataMap := map[string]string{
+		"id":         fmt.Sprintf("%d", telegramData.User.ID),
+		"first_name": telegramData.User.FirstName,
+		"username":   telegramData.User.Username,
+		"photo_url":  telegramData.User.PhotoURL,
+		"auth_date":  fmt.Sprintf("%d", telegramData.User.AuthDate),
+	}
+
+	if !verifyTelegramAuth(dataMap, telegramData.User.Hash, "7847265084:AAE7h3S5dz67UjheOXpJjff6JiEWhAZ5gh4") {
 		return echo.NewHTTPError(http.StatusUnauthorized, "invalid telegram authentication")
 	}
 
-	telegramUserID := telegramData.Data["id"]
+	if time.Now().Unix()-telegramData.User.AuthDate > 86400 {
+		return echo.NewHTTPError(http.StatusUnauthorized, "authorization data is outdated")
+	}
+
+	telegramUserID := fmt.Sprintf("%d", telegramData.User.ID)
 	if telegramUserID == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "telegram user id not found")
 	}

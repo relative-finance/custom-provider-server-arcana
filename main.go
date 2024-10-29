@@ -130,7 +130,7 @@ func main() {
 	e.GET("/.well-known/jwks.json", app.JWKSEndpoint)
 	e.GET("/user", app.getUser)
 	e.GET("/health", healthHandler)
-	e.GET("/auth/telegram", app.telegramAuth)
+	e.POST("/auth/telegram", app.telegramAuth)
 
 	{
 		_, ok := app.authMap["lichess"]
