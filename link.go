@@ -184,37 +184,39 @@ func (a *application) telegramAuth(c echo.Context) error {
 	}
 
 	var telegramData struct {
-		User struct {
-			ID        int64  `json:"id"`
-			FirstName string `json:"first_name"`
-			Username  string `json:"username"`
-			PhotoURL  string `json:"photo_url"`
-			AuthDate  int64  `json:"auth_date"`
-			Hash      string `json:"hash"`
+		QueryID string `json:"query_id"`
+		User    struct {
+			ID              int64  `json:"id"`
+			FirstName       string `json:"first_name"`
+			LastName        string `json:"last_name"`
+			Username        string `json:"username"`
+			LanguageCode    string `json:"language_code"`
+			AllowsWriteToPM bool   `json:"allows_write_to_pm"`
 		} `json:"user"`
+		AuthDate int64  `json:"auth_date"`
+		Hash     string `json:"hash"`
 	}
 
 	if err := c.Bind(&telegramData); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid request body")
 	}
 
-	if telegramData.User.Hash == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "hash is required")
+	userJSON, err := json.Marshal(telegramData.User)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to marshal user data")
 	}
 
 	dataMap := map[string]string{
-		"id":         fmt.Sprintf("%d", telegramData.User.ID),
-		"first_name": telegramData.User.FirstName,
-		"username":   telegramData.User.Username,
-		"photo_url":  telegramData.User.PhotoURL,
-		"auth_date":  fmt.Sprintf("%d", telegramData.User.AuthDate),
+		"auth_date": fmt.Sprintf("%d", telegramData.AuthDate),
+		"query_id":  telegramData.QueryID,
+		"user":      string(userJSON),
 	}
 
-	if !verifyTelegramAuth(dataMap, telegramData.User.Hash, "7847265084:AAE7h3S5dz67UjheOXpJjff6JiEWhAZ5gh4") {
+	if !verifyTelegramAuth(dataMap, telegramData.Hash, cfg.TelegramBotToken) {
 		return echo.NewHTTPError(http.StatusUnauthorized, "invalid telegram authentication")
 	}
 
-	if time.Now().Unix()-telegramData.User.AuthDate > 86400 {
+	if time.Now().Unix()-telegramData.AuthDate > 86400 {
 		return echo.NewHTTPError(http.StatusUnauthorized, "authorization data is outdated")
 	}
 
@@ -291,7 +293,7 @@ func (a *application) telegramAuth(c echo.Context) error {
 	}
 
 	if lichessID == "" {
-		customClaims.LoginID = steamUserID 
+		customClaims.LoginID = steamUserID
 		customClaims.LinkedID = lichessID
 	}
 	if steamUserID == "" {
@@ -309,9 +311,9 @@ func (a *application) telegramAuth(c echo.Context) error {
 }
 
 func verifyTelegramAuth(data map[string]string, hash, botToken string) bool {
-	h := sha256.New()
-	h.Write([]byte(botToken))
-	secret := h.Sum(nil)
+	secret := hmac.New(sha256.New, []byte("WebAppData"))
+	secret.Write([]byte(botToken))
+	secretKey := secret.Sum(nil)
 
 	keys := make([]string, 0, len(data))
 	for k := range data {
@@ -331,7 +333,7 @@ func verifyTelegramAuth(data map[string]string, hash, botToken string) bool {
 		}
 	}
 
-	mac := hmac.New(sha256.New, secret)
+	mac := hmac.New(sha256.New, secretKey)
 	mac.Write([]byte(checkString.String()))
 	expectedHash := hex.EncodeToString(mac.Sum(nil))
 
