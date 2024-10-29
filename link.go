@@ -257,9 +257,13 @@ func (a *application) telegramAuth(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusConflict, "telegramUserID is already linked to another showdown user")
 	}
 
-	err = a.db.LinkToExistingUser(telegramUserID, TELEGRAM_PROVIDER, showdownUserID)
-	if err != nil {
-		return fmt.Errorf("failed to link accounts: %w", err)
+	if existingTelegramID == telegramUserID && existingShowdownID == showdownUserID {
+		fmt.Println("already linked to same IDs, skipping link")
+	} else {
+		err = a.db.LinkToExistingUser(telegramUserID, TELEGRAM_PROVIDER, showdownUserID)
+		if err != nil {
+			return fmt.Errorf("failed to link accounts: %w", err)
+		}
 	}
 
 	customClaims := customClaims{
