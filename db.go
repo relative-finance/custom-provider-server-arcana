@@ -60,6 +60,8 @@ type UserStore interface {
 	GetMultipleLichessTokens(names []string, useUserIdQuery bool) (GetLichessUserInfoRes, error)
 	GetLinkedTelegramIDFromShowdownID(showdownUserID string) (string, error)
 	GetLinkedShowdownIDFromTelegramID(telegramUserID string) (string, error)
+	StoreTelegramUserID(userID int64) error
+	GetTelegramUserIDFromShowdownID(showdownUserID string) (*TelegramUserData, error)
 }
 
 type PostgresDB struct {
@@ -380,6 +382,41 @@ func (s *PostgresDB) GetLinkedShowdownIDFromTelegramID(telegramUserID string) (s
 	return showdownUserID, nil
 }
 
+func (s *PostgresDB) StoreTelegramUserID(userID int64) error {
+	_, err := s.Exec(`
+		INSERT INTO telegram_users (user_id)
+		VALUES ($1)
+		ON CONFLICT (user_id) DO UPDATE 
+		SET created_at = CURRENT_TIMESTAMP
+	`, userID)
+	
+	if err != nil {
+		return fmt.Errorf("failed to store telegram user: %w", err)
+	}
+	
+	return nil
+}
+
+func (s *PostgresDB) GetTelegramUserIDFromShowdownID(showdownUserID string) (*TelegramUserData, error) {
+	var userData TelegramUserData
+	
+	err := s.QueryRow(`
+		SELECT tu.user_id, tu.created_at
+		FROM telegram_users tu
+		JOIN provider_users pu ON CAST(tu.user_id AS VARCHAR) = pu.local_id
+		WHERE pu.user_id = $1 AND pu.provider = $2
+	`, showdownUserID, TELEGRAM_PROVIDER).Scan(&userData.UserID, &userData.CreatedAt)
+	
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get telegram user: %w", err)
+	}
+	
+	return &userData, nil
+}
+
 /*
 -- PostgreSQL schema changes:
 
@@ -414,5 +451,12 @@ CREATE TABLE provider_users (
 CREATE TABLE users (
   id SERIAL PRIMARY KEY,
   name VARCHAR(255) DEFAULT NULL
+);
+
+CREATE TABLE telegram_users (
+    id SERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id)
 );
 */

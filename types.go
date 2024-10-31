@@ -1,5 +1,7 @@
 package main
 
+import "time"
+
 type configuration struct {
 	ListenPort          string
 	RedirectURL         string
@@ -47,5 +49,11 @@ type LichessUserInfo struct {
 	LichessId    string `json:"lichessId"`
 	LichessToken string `json:"lichessToken"`
 }
+
+type TelegramUserData struct {
+	UserID    int64     `json:"user_id"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 
 type GetLichessUserInfoRes map[string]LichessUserInfo

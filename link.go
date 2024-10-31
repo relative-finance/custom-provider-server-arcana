@@ -220,12 +220,13 @@ func (a *application) telegramAuth(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, "authorization data is outdated")
 	}
 
-	telegramUserID := fmt.Sprintf("%d", telegramData.User.ID)
-	if telegramUserID == "" {
+	telegramUserName := telegramData.User.Username
+	if telegramUserName == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "telegram user id not found")
 	}
 
-	url := cfg.ShowdownUserService + "/access"
+	// url := cfg.ShowdownUserService + "/access"
+	url := "http://host.docker.internal:82/access" // Special DNS name to reach host
 	payload := []byte(fmt.Sprintf("{\"access_token\": \"%v\"}", token))
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(payload))
 	if err != nil {
@@ -264,32 +265,46 @@ func (a *application) telegramAuth(c echo.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to check existing telegram link: %w", err)
 	}
-	if existingTelegramID != "" && existingTelegramID != telegramUserID {
+	if existingTelegramID != "" && existingTelegramID != telegramUserName {
 		return echo.NewHTTPError(http.StatusConflict, "showdownUserID is already linked to another telegram user")
 	}
 
-	existingShowdownID, err := a.db.GetLinkedShowdownIDFromTelegramID(telegramUserID)
+	existingShowdownID, err := a.db.GetLinkedShowdownIDFromTelegramID(telegramUserName)
 	if err != nil {
 		return fmt.Errorf("failed to check existing showdown link: %w", err)
 	}
 
 	if existingShowdownID != "" && existingShowdownID != showdownUserID {
-		return echo.NewHTTPError(http.StatusConflict, "telegramUserID is already linked to another showdown user")
+		return echo.NewHTTPError(http.StatusConflict, "telegramUserName is already linked to another showdown user")
 	}
 
-	if existingTelegramID == telegramUserID && existingShowdownID == showdownUserID {
+	if existingTelegramID == telegramUserName && existingShowdownID == showdownUserID {
 		fmt.Println("already linked to same IDs, skipping link")
 	} else {
-		err = a.db.LinkToExistingUser(telegramUserID, TELEGRAM_PROVIDER, showdownUserID)
+		err = a.db.LinkToExistingUser(telegramUserName, TELEGRAM_PROVIDER, showdownUserID)
 		if err != nil {
 			return fmt.Errorf("failed to link accounts: %w", err)
+		}
+	}
+
+	telegramUser, err := a.db.GetTelegramUserIDFromShowdownID(showdownUserID)
+	if err != nil {
+		return fmt.Errorf("failed to check existing telegram user: %w", err)
+	}
+
+	fmt.Println("telegramUser", telegramUser)
+
+	if telegramUser == nil {
+		err = a.db.StoreTelegramUserID(telegramData.User.ID)
+		if err != nil {
+			return fmt.Errorf("failed to store telegram user: %w", err)
 		}
 	}
 
 	customClaims := customClaims{
 		UserID:     showdownUserID,
 		LoginType:  TELEGRAM_PROVIDER,
-		TelegramID: telegramUserID,
+		TelegramID: telegramUserName,
 	}
 
 	if lichessID == "" {
