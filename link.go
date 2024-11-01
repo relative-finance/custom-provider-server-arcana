@@ -287,20 +287,6 @@ func (a *application) telegramAuth(c echo.Context) error {
 		}
 	}
 
-	telegramUser, err := a.db.GetTelegramUserIDFromShowdownID(showdownUserID)
-	if err != nil {
-		return fmt.Errorf("failed to check existing telegram user: %w", err)
-	}
-
-	fmt.Println("telegramUser", telegramUser)
-
-	if telegramUser == nil {
-		err = a.db.StoreTelegramUserID(telegramData.User.ID)
-		if err != nil {
-			return fmt.Errorf("failed to store telegram user: %w", err)
-		}
-	}
-
 	customClaims := customClaims{
 		UserID:     showdownUserID,
 		LoginType:  TELEGRAM_PROVIDER,

@@ -131,6 +131,8 @@ func main() {
 	e.GET("/user", app.getUser)
 	e.GET("/health", healthHandler)
 	e.POST("/auth/telegram", app.telegramAuth)
+	e.GET("/get_telegram_id", app.getTelegramID)
+	e.POST("/verify/telegram", app.verifyTelegramUser)
 
 	{
 		_, ok := app.authMap["lichess"]
