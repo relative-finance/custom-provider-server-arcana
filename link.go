@@ -220,8 +220,8 @@ func (a *application) telegramAuth(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, "authorization data is outdated")
 	}
 
-	telegramUserName := telegramData.User.Username
-	if telegramUserName == "" {
+	telegramUserID := fmt.Sprintf("%d", telegramData.User.ID)
+	if telegramUserID == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "telegram user id not found")
 	}
 
@@ -265,23 +265,23 @@ func (a *application) telegramAuth(c echo.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to check existing telegram link: %w", err)
 	}
-	if existingTelegramID != "" && existingTelegramID != telegramUserName {
+	if existingTelegramID != "" && existingTelegramID != telegramUserID {
 		return echo.NewHTTPError(http.StatusConflict, "showdownUserID is already linked to another telegram user")
 	}
 
-	existingShowdownID, err := a.db.GetLinkedShowdownIDFromTelegramID(telegramUserName)
+	existingShowdownID, err := a.db.GetLinkedShowdownIDFromTelegramID(telegramUserID)
 	if err != nil {
 		return fmt.Errorf("failed to check existing showdown link: %w", err)
 	}
 
 	if existingShowdownID != "" && existingShowdownID != showdownUserID {
-		return echo.NewHTTPError(http.StatusConflict, "telegramUserName is already linked to another showdown user")
+		return echo.NewHTTPError(http.StatusConflict, "telegramUserID is already linked to another showdown user")
 	}
 
-	if existingTelegramID == telegramUserName && existingShowdownID == showdownUserID {
+	if existingTelegramID == telegramUserID && existingShowdownID == showdownUserID {
 		fmt.Println("already linked to same IDs, skipping link")
 	} else {
-		err = a.db.LinkToExistingUser(telegramUserName, TELEGRAM_PROVIDER, showdownUserID)
+		err = a.db.LinkToExistingUser(telegramUserID, TELEGRAM_PROVIDER, showdownUserID)
 		if err != nil {
 			return fmt.Errorf("failed to link accounts: %w", err)
 		}
@@ -304,7 +304,7 @@ func (a *application) telegramAuth(c echo.Context) error {
 	customClaims := customClaims{
 		UserID:     showdownUserID,
 		LoginType:  TELEGRAM_PROVIDER,
-		TelegramID: telegramUserName,
+		TelegramID: telegramUserID,
 	}
 
 	if lichessID == "" {
