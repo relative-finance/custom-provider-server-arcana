@@ -15,9 +15,9 @@ func (a *application) getTelegramID(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, "invalid API key")
 	}
 
-	showdownUserIDs := c.QueryParams()["ShowdownUserID"]
+	showdownUserIDs := c.QueryParams()["showdownUserID"]
 	if len(showdownUserIDs) == 0 {
-		return echo.NewHTTPError(http.StatusBadRequest, "ShowdownUserID query parameter is required")
+		return echo.NewHTTPError(http.StatusBadRequest, "showdownUserID query parameter is required")
 	}
 
 	var results []TelegramUser
