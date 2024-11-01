@@ -60,6 +60,9 @@ type UserStore interface {
 	GetMultipleLichessTokens(names []string, useUserIdQuery bool) (GetLichessUserInfoRes, error)
 	GetLinkedTelegramIDFromShowdownID(showdownUserID string) (string, error)
 	GetLinkedShowdownIDFromTelegramID(telegramUserID string) (string, error)
+	// GetTelegramUserByID(telegramID string) (*TelegramUser, error)
+	GetTelegramUsersByShowdownIDs(showdownUserIDs []string) ([]TelegramUser, error)
+	UpsertTelegramUser(telegramID string, firstName, lastName, username string) error
 }
 
 type PostgresDB struct {
@@ -380,6 +383,78 @@ func (s *PostgresDB) GetLinkedShowdownIDFromTelegramID(telegramUserID string) (s
 	return showdownUserID, nil
 }
 
+// func (s *PostgresDB) GetTelegramUserByID(telegramID string) (*TelegramUser, error) {
+// 	var user TelegramUser
+// 	query := `
+//         SELECT telegram_id, first_name, last_name, username
+//         FROM telegram_users
+//         WHERE telegram_id = $1
+//     `
+// 	err := s.QueryRow(query, telegramID).Scan(
+// 		&user.TelegramID,
+// 		&user.FirstName,
+// 		&user.LastName,
+// 		&user.Username,
+// 	)
+// 	if err != nil {
+// 		if err == sql.ErrNoRows {
+// 			return nil, nil
+// 		}
+// 		return nil, err
+// 	}
+// 	return &user, nil
+// }
+
+func (s *PostgresDB) GetTelegramUsersByShowdownIDs(showdownUserIDs []string) ([]TelegramUser, error) {
+	var results []TelegramUser
+
+	query := `
+		SELECT t.telegram_id, t.first_name, t.last_name, t.username
+		FROM provider_users p
+		JOIN telegram_users t ON p.local_id = t.telegram_id
+		WHERE p.user_id = ANY($1) AND p.provider = $2
+	`
+
+	rows, err := s.Query(query, pq.Array(showdownUserIDs), TELEGRAM_PROVIDER)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var user TelegramUser
+		err := rows.Scan(
+			&user.TelegramID,
+			&user.FirstName,
+			&user.LastName,
+			&user.Username,
+		)
+		if err != nil {
+			continue
+		}
+		results = append(results, user)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return results, nil
+}
+
+func (s *PostgresDB) UpsertTelegramUser(telegramID string, firstName, lastName, username string) error {
+	query := `
+		INSERT INTO telegram_users (telegram_id, first_name, last_name, username)
+		VALUES ($1, $2, $3, $4)
+	`
+	rows, err := s.Query(query, telegramID, firstName, lastName, username)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	return nil
+}
+
 /*
 -- PostgreSQL schema changes:
 
@@ -414,5 +489,12 @@ CREATE TABLE provider_users (
 CREATE TABLE users (
   id SERIAL PRIMARY KEY,
   name VARCHAR(255) DEFAULT NULL
+);
+
+CREATE TABLE telegram_users (
+    telegram_id VARCHAR(255) PRIMARY KEY,
+    first_name VARCHAR(255),
+    last_name VARCHAR(255),
+    username VARCHAR(255),
 );
 */

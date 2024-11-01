@@ -30,6 +30,7 @@ func (a *application) linkAccount(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "auth token required in header")
 	}
 
+	// url := "http://host.docker.internal:82/access" // Special DNS name to reach host
 	url := cfg.ShowdownUserService + "/access"
 	payload := []byte(fmt.Sprintf("{\"access_token\": \"%v\"}", token))
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(payload))
@@ -225,8 +226,8 @@ func (a *application) telegramAuth(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "telegram user id not found")
 	}
 
-	// url := cfg.ShowdownUserService + "/access"
-	url := "http://host.docker.internal:82/access" // Special DNS name to reach host
+	url := cfg.ShowdownUserService + "/access"
+	// url := "http://host.docker.internal:82/access" // Special DNS name to reach host
 	payload := []byte(fmt.Sprintf("{\"access_token\": \"%v\"}", token))
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(payload))
 	if err != nil {
@@ -285,6 +286,16 @@ func (a *application) telegramAuth(c echo.Context) error {
 		if err != nil {
 			return fmt.Errorf("failed to link accounts: %w", err)
 		}
+	}
+
+	err = a.db.UpsertTelegramUser(
+		telegramUserID,
+		telegramData.User.FirstName,
+		telegramData.User.LastName,
+		telegramData.User.Username,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to store telegram user details: %w", err)
 	}
 
 	customClaims := customClaims{

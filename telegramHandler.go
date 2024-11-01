@@ -15,25 +15,19 @@ func (a *application) getTelegramID(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, "invalid API key")
 	}
 
-	showdownUserID := c.QueryParam("showdownUserID")
-
-	if showdownUserID == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "showdownUserID are required")
+	showdownUserIDs := c.QueryParams()["ShowdownUserID"]
+	if len(showdownUserIDs) == 0 {
+		return echo.NewHTTPError(http.StatusBadRequest, "ShowdownUserID query parameter is required")
 	}
 
-	telegramID, err := a.db.GetLinkedTelegramIDFromShowdownID(showdownUserID)
+	var results []TelegramUser
+
+	results, err := a.db.GetTelegramUsersByShowdownIDs(showdownUserIDs)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "failed to get telegram ID")
+		echo.NewHTTPError(http.StatusInternalServerError, "failed to get the telegram users")
 	}
 
-	if telegramID == "" {
-		return echo.NewHTTPError(http.StatusNotFound, "no telegram ID found for this user")
-	}
-
-	return c.JSON(http.StatusOK, map[string]string{
-		"showdown_id": showdownUserID,
-		"telegram_id": telegramID,
-	})
+	return c.JSON(http.StatusOK, results)
 }
 
 func (a *application) verifyTelegramUser(c echo.Context) error {

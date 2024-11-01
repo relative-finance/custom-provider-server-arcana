@@ -49,3 +49,10 @@ type LichessUserInfo struct {
 }
 
 type GetLichessUserInfoRes map[string]LichessUserInfo
+
+type TelegramUser struct {
+	FirstName   string `json:"first_name"`
+	LastName    string `json:"last_name"`
+	TelegramID  string `json:"telegram_id"`
+	Username    string `json:"username"`
+}
