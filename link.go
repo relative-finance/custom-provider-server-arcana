@@ -284,28 +284,26 @@ func (a *application) telegramAuth(c echo.Context) error {
 		if err != nil {
 			return fmt.Errorf("failed to link accounts: %w", err)
 		}
-	}
 
-	err = a.db.UpsertTelegramUser(
-		telegramUserID,
-		telegramData.User.FirstName,
-		telegramData.User.LastName,
-		telegramData.User.Username,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to store telegram user details: %w", err)
+		err = a.db.UpsertTelegramUser(
+			telegramUserID,
+			telegramData.User.FirstName,
+			telegramData.User.LastName,
+			telegramData.User.Username,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to store telegram user details: %w", err)
+		}
 	}
 
 	customClaims := customClaims{
 		UserID:     showdownUserID,
 		LoginType:  TELEGRAM_PROVIDER,
 		TelegramID: telegramUserID,
+		LoginID:    steamUserID,
+		LinkedID:   lichessID,
 	}
 
-	if lichessID == "" {
-		customClaims.LoginID = steamUserID
-		customClaims.LinkedID = lichessID
-	}
 	if steamUserID == "" {
 		customClaims.LoginID = lichessID
 		customClaims.LinkedID = steamUserID
