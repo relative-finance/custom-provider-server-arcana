@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/go-jose/go-jose/v4/jwt"
 	"github.com/labstack/echo/v4"
 )
 
@@ -29,7 +30,6 @@ func (a *application) getTelegramID(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, results)
 }
-
 func (a *application) verifyTelegramUser(c echo.Context) error {
 	var telegramData struct {
 		QueryID string `json:"query_id"`
@@ -87,8 +87,60 @@ func (a *application) verifyTelegramUser(c echo.Context) error {
 		return fmt.Errorf("failed to get connected accounts: %w", err)
 	}
 
-	return c.JSON(http.StatusOK, map[string]interface{}{
-		"showdown_id": showdownUserID,
-		"accounts":    accounts,
+	cl := jwt.Claims{
+		Audience:  []string{a.jwtAudience},
+		Issuer:    a.selfURL,
+		NotBefore: jwt.NewNumericDate(time.Now()),
+		IssuedAt:  jwt.NewNumericDate(time.Now()),
+		Expiry:    jwt.NewNumericDate(time.Now().Add(time.Minute * 3)),
+	}
+
+	var lichessID, steamID string
+	for _, account := range accounts {
+		switch account.Provider {
+		case "lichess":
+			lichessID = account.ID
+		case "steam":
+			steamID = account.ID
+		}
+	}
+
+	customClaims := customClaims{
+		UserID:     showdownUserID,
+		LoginType:  TELEGRAM_PROVIDER,
+		LoginID:    telegramUserID,
+		LinkedID:   lichessID,
+		TelegramID: telegramUserID,
+	}
+
+	if lichessID != "" && steamID != "" {
+		if lichessID == "" {
+			customClaims.LoginID = steamID
+			customClaims.LinkedID = lichessID
+		}
+		if steamID == "" {
+			customClaims.LoginID = lichessID
+			customClaims.LinkedID = steamID
+		}
+	}
+
+	token, err := jwt.Signed(a.signer).Claims(cl).Claims(customClaims).Serialize()
+	if err != nil {
+		fmt.Println("jwtcreationerror:", err)
+		return echo.NewHTTPError(http.StatusInternalServerError)
+	}
+
+	cl.Audience = []string{cl.Issuer}
+	loginToken, err := jwt.Signed(a.signer).Claims(cl).Claims(customClaims).Serialize()
+	if err != nil {
+		fmt.Println("jwtcreationerror:", err)
+		return echo.NewHTTPError(http.StatusInternalServerError)
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{
+		"token":      token,
+		"userID":     showdownUserID,
+		"loginType":  TELEGRAM_PROVIDER,
+		"loginToken": loginToken,
 	})
 }

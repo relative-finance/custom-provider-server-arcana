@@ -60,7 +60,6 @@ type UserStore interface {
 	GetMultipleLichessTokens(names []string, useUserIdQuery bool) (GetLichessUserInfoRes, error)
 	GetLinkedTelegramIDFromShowdownID(showdownUserID string) (string, error)
 	GetLinkedShowdownIDFromTelegramID(telegramUserID string) (string, error)
-	// GetTelegramUserByID(telegramID string) (*TelegramUser, error)
 	GetTelegramUsersByShowdownIDs(showdownUserIDs []string) ([]TelegramUser, error)
 	UpsertTelegramUser(telegramID string, firstName, lastName, username string) error
 }
@@ -382,28 +381,6 @@ func (s *PostgresDB) GetLinkedShowdownIDFromTelegramID(telegramUserID string) (s
 	}
 	return showdownUserID, nil
 }
-
-// func (s *PostgresDB) GetTelegramUserByID(telegramID string) (*TelegramUser, error) {
-// 	var user TelegramUser
-// 	query := `
-//         SELECT telegram_id, first_name, last_name, username
-//         FROM telegram_users
-//         WHERE telegram_id = $1
-//     `
-// 	err := s.QueryRow(query, telegramID).Scan(
-// 		&user.TelegramID,
-// 		&user.FirstName,
-// 		&user.LastName,
-// 		&user.Username,
-// 	)
-// 	if err != nil {
-// 		if err == sql.ErrNoRows {
-// 			return nil, nil
-// 		}
-// 		return nil, err
-// 	}
-// 	return &user, nil
-// }
 
 func (s *PostgresDB) GetTelegramUsersByShowdownIDs(showdownUserIDs []string) ([]TelegramUser, error) {
 	var results []TelegramUser

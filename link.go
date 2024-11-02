@@ -30,7 +30,6 @@ func (a *application) linkAccount(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "auth token required in header")
 	}
 
-	// url := "http://host.docker.internal:82/access" // Special DNS name to reach host
 	url := cfg.ShowdownUserService + "/access"
 	payload := []byte(fmt.Sprintf("{\"access_token\": \"%v\"}", token))
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(payload))
@@ -227,7 +226,6 @@ func (a *application) telegramAuth(c echo.Context) error {
 	}
 
 	url := cfg.ShowdownUserService + "/access"
-	// url := "http://host.docker.internal:82/access" // Special DNS name to reach host
 	payload := []byte(fmt.Sprintf("{\"access_token\": \"%v\"}", token))
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(payload))
 	if err != nil {
