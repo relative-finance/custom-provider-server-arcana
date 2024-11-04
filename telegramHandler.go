@@ -25,7 +25,7 @@ func (a *application) getTelegramID(c echo.Context) error {
 
 	results, err := a.db.GetTelegramUsersByShowdownIDs(showdownUserIDs)
 	if err != nil {
-		echo.NewHTTPError(http.StatusInternalServerError, "failed to get the telegram users")
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to get the telegram users")
 	}
 
 	return c.JSON(http.StatusOK, results)
@@ -108,7 +108,7 @@ func (a *application) verifyTelegramUser(c echo.Context) error {
 	customClaims := customClaims{
 		UserID:     showdownUserID,
 		LoginType:  TELEGRAM_PROVIDER,
-		LoginID:    telegramUserID,
+		LoginID:    steamID,
 		LinkedID:   lichessID,
 		TelegramID: telegramUserID,
 	}
