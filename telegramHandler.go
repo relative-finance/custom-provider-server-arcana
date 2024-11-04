@@ -108,20 +108,20 @@ func (a *application) verifyTelegramUser(c echo.Context) error {
 	customClaims := customClaims{
 		UserID:     showdownUserID,
 		LoginType:  TELEGRAM_PROVIDER,
-		LoginID:    steamID,
-		LinkedID:   lichessID,
 		TelegramID: telegramUserID,
 	}
 
-	if lichessID != "" && steamID != "" {
-		if lichessID == "" {
-			customClaims.LoginID = steamID
-			customClaims.LinkedID = lichessID
-		}
+	if steamID == "" || lichessID == "" {
 		if steamID == "" {
 			customClaims.LoginID = lichessID
 			customClaims.LinkedID = steamID
+		} else {
+			customClaims.LoginID = steamID
+			customClaims.LinkedID = lichessID
 		}
+	} else {
+		customClaims.LoginID = steamID
+		customClaims.LinkedID = lichessID
 	}
 
 	token, err := jwt.Signed(a.signer).Claims(cl).Claims(customClaims).Serialize()
