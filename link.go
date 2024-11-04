@@ -278,7 +278,7 @@ func (a *application) telegramAuth(c echo.Context) error {
 	}
 
 	if existingTelegramID == telegramUserID && existingShowdownID == showdownUserID {
-		fmt.Println("already linked to same IDs, skipping link")
+		return c.JSON(http.StatusOK, "already linked")
 	} else {
 		err = a.db.LinkToExistingUser(telegramUserID, TELEGRAM_PROVIDER, showdownUserID)
 		if err != nil {
