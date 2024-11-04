@@ -10,6 +10,7 @@ MySQLPass = ""
 MySQLDB = ""
 Apikey = ""
 ShowdownUserService = ""
+TelegramBotToken = ""
 
 [[Verifiers]]
 Name = "google"
