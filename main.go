@@ -90,6 +90,8 @@ func main() {
 	}
 
 	{
+		// For dev
+		// connectionStr := fmt.Sprintf("postgresql://%s:%s@%s:%s/%s?sslmode=disable", cfg.MySQLUser, cfg.MySQLPass, cfg.MySQLHost, cfg.MySQLPort, cfg.MySQLDB)
 		connectionStr := fmt.Sprintf("postgresql://%s:%s@%s:%s/%s", cfg.MySQLUser, cfg.MySQLPass, cfg.MySQLHost, cfg.MySQLPort, cfg.MySQLDB)
 		fmt.Println(connectionStr)
 		fmt.Println(google.Endpoint)
@@ -130,6 +132,9 @@ func main() {
 	e.GET("/.well-known/jwks.json", app.JWKSEndpoint)
 	e.GET("/user", app.getUser)
 	e.GET("/health", healthHandler)
+	e.POST("/auth/telegram", app.telegramAuth)
+	e.GET("/get_telegram_id", app.getTelegramID)
+	e.POST("/verify/telegram", app.verifyTelegramUser)
 
 	{
 		_, ok := app.authMap["lichess"]
@@ -197,6 +202,10 @@ func (app *application) getConfig(providerConf ProviderConfig) (*OAuth2Config, e
 	case "lichess":
 		c.Endpoint = LichessEndpoint
 		c.userInfoURL = LICHESS_USER_INFO_URL
+		return c, nil
+	case "telegram":
+		c.Endpoint = TelegramEndpoint
+		c.userInfoURL = TELEGRAM_USER_INFO_URL
 		return c, nil
 	}
 

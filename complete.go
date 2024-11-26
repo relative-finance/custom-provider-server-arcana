@@ -163,12 +163,18 @@ func (a *application) completeLogin(c echo.Context) error {
 		}
 	}
 
-	// Get or insert user to db, get ID and replace UserID
+	telegramID, err := a.db.GetLinkedTelegramIDFromShowdownID(user)
+	if err != nil {
+		fmt.Println("Error fetching Telegram ID:", err)
+		return err
+	}
+
 	customClaims := customClaims{
-		UserID:    user,
-		LoginType: sl[1],
-		LoginID:   id,
-		LinkedID:  secondID,
+		UserID:     user,
+		LoginType:  sl[1],
+		LoginID:    id,
+		LinkedID:   secondID,
+		TelegramID: telegramID,
 	}
 
 	token, err := jwt.Signed(a.signer).Claims(cl).Claims(customClaims).Serialize()

@@ -14,6 +14,7 @@ type configuration struct {
 	Apikey              string
 	ShowdownUserService string
 	Verifiers           []ProviderConfig
+	TelegramBotToken    string
 }
 
 type ProviderConfig struct {
@@ -26,10 +27,11 @@ type ProviderConfig struct {
 }
 
 type customClaims struct {
-	UserID    string `json:"user_id"`
-	LoginID   string `json:"login_id"`
-	LoginType string `json:"login_type"`
-	LinkedID  string `json:"linked_id"`
+	UserID     string `json:"user_id"`
+	LoginID    string `json:"login_id"`
+	LoginType  string `json:"login_type"`
+	LinkedID   string `json:"linked_id"`
+	TelegramID string `json:"telegram_id"`
 }
 
 type SteamSession struct {
@@ -47,3 +49,10 @@ type LichessUserInfo struct {
 }
 
 type GetLichessUserInfoRes map[string]LichessUserInfo
+
+type TelegramUser struct {
+	FirstName  string `json:"first_name"`
+	LastName   string `json:"last_name"`
+	TelegramID string `json:"telegram_id"`
+	Username   string `json:"username"`
+}

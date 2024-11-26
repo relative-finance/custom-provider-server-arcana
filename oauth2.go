@@ -14,6 +14,11 @@ type OAuth2Config struct {
 	provider    string
 }
 
+var TelegramEndpoint = oauth2.Endpoint{
+	AuthURL:  "https://oauth.telegram.org/auth",
+	TokenURL: "https://oauth.telegram.org/api/v4/access_token",
+}
+
 var LichessEndpoint = oauth2.Endpoint{
 	AuthURL:  "https://lichess.org/oauth",
 	TokenURL: "https://lichess.org/api/token",
@@ -77,6 +82,11 @@ type SteamUserInfo struct {
 	ID      string `json:"id"`
 	AZP     string `json:"azp"`
 	IAT     int64  `json:"iat"`
+}
+
+type TelegramUserInfo struct {
+	ID       string `json:"id"`
+	Username string `json:"username"`
 }
 
 func (c *OAuth2Config) getUserInfo(token string) (string, error) {
@@ -144,6 +154,19 @@ func (c *OAuth2Config) getUserInfo(token string) (string, error) {
 		var info SteamUserInfo
 		res, err := req.R().
 			SetQueryParam("token", token).
+			SetSuccessResult(&info).
+			Get(c.userInfoURL)
+		if err != nil {
+			return "", err
+		}
+		if res.IsErrorState() {
+			return "", errors.New("error during userInfo API call")
+		}
+		return info.ID, nil
+	case "telegram":
+		var info TelegramUserInfo
+		res, err := req.R().
+			SetBearerAuthToken(token).
 			SetSuccessResult(&info).
 			Get(c.userInfoURL)
 		if err != nil {

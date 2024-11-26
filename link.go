@@ -2,11 +2,16 @@ package main
 
 import (
 	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/dchest/uniuri"
@@ -170,4 +175,175 @@ func (a *application) getUser(c echo.Context) error {
 		}
 	}
 	return echo.NewHTTPError(http.StatusInternalServerError)
+}
+
+func (a *application) telegramAuth(c echo.Context) error {
+	token := c.Request().Header.Get("Authorization")
+	if token == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "auth token required")
+	}
+
+	var telegramData struct {
+		QueryID string `json:"query_id"`
+		User    struct {
+			ID              int64  `json:"id"`
+			FirstName       string `json:"first_name"`
+			LastName        string `json:"last_name"`
+			Username        string `json:"username"`
+			LanguageCode    string `json:"language_code"`
+			AllowsWriteToPM bool   `json:"allows_write_to_pm"`
+		} `json:"user"`
+		AuthDate int64  `json:"auth_date"`
+		Hash     string `json:"hash"`
+	}
+
+	if err := c.Bind(&telegramData); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid request body")
+	}
+
+	userJSON, err := json.Marshal(telegramData.User)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to marshal user data")
+	}
+
+	dataMap := map[string]string{
+		"auth_date": fmt.Sprintf("%d", telegramData.AuthDate),
+		"query_id":  telegramData.QueryID,
+		"user":      string(userJSON),
+	}
+
+	if !verifyTelegramAuth(dataMap, telegramData.Hash, cfg.TelegramBotToken) {
+		return echo.NewHTTPError(http.StatusUnauthorized, "invalid telegram authentication")
+	}
+
+	if time.Now().Unix()-telegramData.AuthDate > 86400 {
+		return echo.NewHTTPError(http.StatusUnauthorized, "authorization data is outdated")
+	}
+
+	telegramUserID := fmt.Sprintf("%d", telegramData.User.ID)
+	if telegramUserID == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "telegram user id not found")
+	}
+
+	url := cfg.ShowdownUserService + "/access"
+	payload := []byte(fmt.Sprintf("{\"access_token\": \"%v\"}", token))
+	resp, err := http.Post(url, "application/json", bytes.NewBuffer(payload))
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to authorize")
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	tokenMap := map[string]interface{}{}
+	if err := json.Unmarshal(body, &tokenMap); err != nil {
+		return err
+	}
+
+	showdownUserID, ok := tokenMap["ShowdownUserID"].(string)
+	if !ok {
+		return fmt.Errorf("failed to parse showdownUserID")
+	}
+
+	lichessID, ok := tokenMap["LichessID"].(string)
+	if !ok {
+		return fmt.Errorf("failed to parse LichessID")
+	}
+
+	steamUserID, ok := tokenMap["UserID"].(string)
+	if !ok {
+		return fmt.Errorf("failed to parse UserID")
+	}
+
+	existingTelegramID, err := a.db.GetLinkedTelegramIDFromShowdownID(showdownUserID)
+	if err != nil {
+		return fmt.Errorf("failed to check existing telegram link: %w", err)
+	}
+	if existingTelegramID != "" && existingTelegramID != telegramUserID {
+		return echo.NewHTTPError(http.StatusConflict, "showdownUserID is already linked to another telegram user")
+	}
+
+	existingShowdownID, err := a.db.GetLinkedShowdownIDFromTelegramID(telegramUserID)
+	if err != nil {
+		return fmt.Errorf("failed to check existing showdown link: %w", err)
+	}
+
+	if existingShowdownID != "" && existingShowdownID != showdownUserID {
+		return echo.NewHTTPError(http.StatusConflict, "telegramUserID is already linked to another showdown user")
+	}
+
+	if existingTelegramID == telegramUserID && existingShowdownID == showdownUserID {
+		return c.JSON(http.StatusOK, "already linked")
+	} else {
+		err = a.db.LinkToExistingUser(telegramUserID, TELEGRAM_PROVIDER, showdownUserID)
+		if err != nil {
+			return fmt.Errorf("failed to link accounts: %w", err)
+		}
+
+		err = a.db.UpsertTelegramUser(
+			telegramUserID,
+			telegramData.User.FirstName,
+			telegramData.User.LastName,
+			telegramData.User.Username,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to store telegram user details: %w", err)
+		}
+	}
+
+	customClaims := customClaims{
+		UserID:     showdownUserID,
+		LoginType:  TELEGRAM_PROVIDER,
+		TelegramID: telegramUserID,
+		LoginID:    steamUserID,
+		LinkedID:   lichessID,
+	}
+
+	if steamUserID == "" {
+		customClaims.LoginID = lichessID
+		customClaims.LinkedID = steamUserID
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{
+		"user_id":     customClaims.UserID,
+		"login_id":    customClaims.LoginID,
+		"login_type":  customClaims.LoginType,
+		"linked_id":   customClaims.LinkedID,
+		"telegram_id": customClaims.TelegramID,
+	})
+}
+
+func verifyTelegramAuth(data map[string]string, hash, botToken string) bool {
+	secret := hmac.New(sha256.New, []byte("WebAppData"))
+	secret.Write([]byte(botToken))
+	secretKey := secret.Sum(nil)
+
+	keys := make([]string, 0, len(data))
+	for k := range data {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	var checkString strings.Builder
+	for i, k := range keys {
+		if data[k] != "" {
+			if i > 0 {
+				checkString.WriteString("\n")
+			}
+			checkString.WriteString(k)
+			checkString.WriteString("=")
+			checkString.WriteString(data[k])
+		}
+	}
+
+	mac := hmac.New(sha256.New, secretKey)
+	mac.Write([]byte(checkString.String()))
+	expectedHash := hex.EncodeToString(mac.Sum(nil))
+
+	return expectedHash == hash
 }
