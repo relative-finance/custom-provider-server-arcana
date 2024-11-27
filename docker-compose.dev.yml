@@ -21,7 +21,7 @@ services:
       context: .
       dockerfile: Dockerfile.dev
     ports:
-      - '95:81'
+      - '81:81'
     container_name: 'arcana-auth-service-dev'
     restart: always
     volumes:

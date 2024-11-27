@@ -34,6 +34,15 @@ type customClaims struct {
 	TelegramID string `json:"telegram_id"`
 }
 
+type showdownUserTokenStruct struct {
+	ShowdownUserID string `json:"showdownUserID"`
+	UserID         string `json:"userID"`
+	LichessID      string `json:"lichessID"`
+	TelegramID     string `json:"telegramID"`
+	Address        string `json:"address"`
+	Email          string `json:"email"`
+}
+
 type SteamSession struct {
 	ID          int
 	SteamID     string
