@@ -37,9 +37,9 @@ func (a *application) sequenceLogin(c echo.Context) error {
 	// Extract the JWT token
 	token := parts[1]
 
-	claims, err := verifyToken(token)
+	claims, err := verifySequenceToken(token)
 	if err != nil {
-		return fmt.Errorf("error verifying token", err)
+		return fmt.Errorf("error verifying token %s", err)
 	}
 
 	userEmail := claims["email"].(string)
@@ -79,6 +79,15 @@ func (a *application) sequenceLogin(c echo.Context) error {
 		}
 	}
 
+	accessToken, refreshToken, err := a.generateShowdownAuthTokens(showdownUserID, userAddress, userEmail, userSteamID, userLichessID, userTelegramID)
+	if err != nil {
+		return fmt.Errorf("error generating tokens %s", err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{"refreshToken": refreshToken, "accessToken": accessToken})
+}
+
+func (a *application) generateShowdownAuthTokens(showdownUserID, userAddress, userEmail, userSteamID, userLichessID, userTelegramID string) (accessToken, refreshToken string, err error) {
 	customClaims := showdownUserTokenStruct{
 		ShowdownUserID: showdownUserID,
 		Address:        userAddress,
@@ -97,19 +106,18 @@ func (a *application) sequenceLogin(c echo.Context) error {
 	}
 
 	cl.Audience = []string{cl.Issuer}
-	accessToken, err := jwt.Signed(a.signer).Claims(cl).Claims(customClaims).Serialize()
+	accessToken, err = jwt.Signed(a.signer).Claims(cl).Claims(customClaims).Serialize()
 	if err != nil {
 		fmt.Println("jwtcreationerror:", err)
-		return echo.NewHTTPError(http.StatusInternalServerError)
+		return "", "", echo.NewHTTPError(http.StatusInternalServerError)
 	}
 	cl.Expiry = jwt.NewNumericDate(time.Now().Add(REFRESH_TOKEN_TTL))
-	refreshToken, err := jwt.Signed(a.signer).Claims(cl).Claims(customClaims).Serialize()
+	refreshToken, err = jwt.Signed(a.signer).Claims(cl).Claims(customClaims).Serialize()
 	if err != nil {
 		fmt.Println("jwtcreationerror:", err)
-		return echo.NewHTTPError(http.StatusInternalServerError)
+		return "", "", echo.NewHTTPError(http.StatusInternalServerError)
 	}
-
-	return c.JSON(http.StatusOK, map[string]string{"refreshToken": refreshToken, "accessToken": accessToken})
+	return accessToken, refreshToken, nil
 }
 
 // JWKS URI
@@ -119,7 +127,7 @@ const jwksURL = "https://waas.sequence.app/.well-known/jwks.json"
 const expectedAudience = "https://sequence.build/project/13639"
 
 // verifyToken verifies the gojwt using the public key and validates claims.
-func verifyToken(tokenStr string) (map[string]interface{}, error) {
+func verifySequenceToken(tokenStr string) (map[string]interface{}, error) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
