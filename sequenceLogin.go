@@ -13,6 +13,7 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"github.com/MicahParks/keyfunc"
+	"github.com/go-jose/go-jose/v4"
 	"github.com/go-jose/go-jose/v4/jwt"
 )
 
@@ -85,6 +86,35 @@ func (a *application) sequenceLogin(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, map[string]string{"refreshToken": refreshToken, "accessToken": accessToken})
+}
+
+func (a *application) verifyShowdownAuthToken(showdownAuthToken string) (*showdownUserTokenStruct, error) {
+	// Parse the JWT
+	var customClaims showdownUserTokenStruct
+	parsedJWT, err := jwt.ParseSigned(showdownAuthToken, []jose.SignatureAlgorithm{jose.ES256})
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse JWT: %w", err)
+	}
+
+	// Standard claims and custom claims
+	var standardClaims jwt.Claims
+
+	// Verify and extract claims using the signer’s public key
+	if err := parsedJWT.Claims(&a.publicKey, &standardClaims, &customClaims); err != nil {
+		return nil, fmt.Errorf("failed to verify JWT claims: %w", err)
+	}
+
+	// Validate standard claims
+	if err := standardClaims.Validate(jwt.Expected{
+		Issuer:      a.selfURL,
+		AnyAudience: jwt.Audience{a.selfURL},
+		Time:        time.Now(),
+	}); err != nil {
+		return nil, fmt.Errorf("JWT validation failed: %w", err)
+	}
+
+	// Return the custom claims if valid
+	return &customClaims, nil
 }
 
 func (a *application) generateShowdownAuthTokens(showdownUserID, userAddress, userEmail, userSteamID, userLichessID, userTelegramID string) (accessToken, refreshToken string, err error) {
