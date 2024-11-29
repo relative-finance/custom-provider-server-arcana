@@ -88,7 +88,45 @@ func (a *application) sequenceLogin(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]string{"refreshToken": refreshToken, "accessToken": accessToken})
 }
 
-func (a *application) accessHandler(c echo.Context) error {
+func (a *application) refreshTokenHandler(c echo.Context) error {
+	var req struct {
+		RefreshToken string `json:"refresh_token"`
+	}
+
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request body")
+	}
+
+	if req.RefreshToken == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "refresh_token is required")
+	}
+
+	customClaims, err := a.verifyShowdownAuthToken(req.RefreshToken)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusUnauthorized, "Refresh token validation failed")
+	}
+
+	// Generate new access token
+	accessToken, _, err := a.generateShowdownAuthTokens(
+		customClaims.ShowdownUserID,
+		customClaims.Address,
+		customClaims.Email,
+		customClaims.UserID,
+		customClaims.LichessID,
+		customClaims.TelegramID,
+	)
+
+	if err != nil {
+		fmt.Println("token generation error:", err)
+		return echo.NewHTTPError(http.StatusInternalServerError)
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{
+		"access_token": accessToken,
+	})
+}
+
+func (a *application) accessTokenHandler(c echo.Context) error {
 	var req struct {
 		AccessToken string `json:"access_token"`
 	}
