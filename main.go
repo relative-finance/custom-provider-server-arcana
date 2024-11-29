@@ -136,7 +136,7 @@ func main() {
 	e.GET("/get_telegram_id", app.getTelegramID)
 	e.POST("/verify/telegram", app.verifyTelegramUser)
 	e.POST("/sequence-login", app.sequenceLogin)
-
+	e.POST("/access", app.accessHandler)
 	{
 		_, ok := app.authMap["lichess"]
 		if ok {

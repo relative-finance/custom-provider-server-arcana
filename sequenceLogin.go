@@ -88,6 +88,27 @@ func (a *application) sequenceLogin(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]string{"refreshToken": refreshToken, "accessToken": accessToken})
 }
 
+func (a *application) accessHandler(c echo.Context) error {
+	var req struct {
+		AccessToken string `json:"access_token"`
+	}
+
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request body")
+	}
+
+	if req.AccessToken == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "access_token is required")
+	}
+
+	claims, err := a.verifyShowdownAuthToken(req.AccessToken)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusUnauthorized, "Invalid access token")
+	}
+
+	return c.JSON(http.StatusOK, claims)
+}
+
 func (a *application) verifyShowdownAuthToken(showdownAuthToken string) (*showdownUserTokenStruct, error) {
 	// Parse the JWT
 	var customClaims showdownUserTokenStruct
