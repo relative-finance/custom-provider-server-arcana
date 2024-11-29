@@ -34,6 +34,7 @@ type customClaims struct {
 	TelegramID string `json:"telegram_id"`
 }
 
+// UserID is the steamID of the user.
 type showdownUserTokenStruct struct {
 	ShowdownUserID string `json:"showdownUserID"`
 	UserID         string `json:"userID"`

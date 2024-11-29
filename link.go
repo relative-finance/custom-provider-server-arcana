@@ -30,40 +30,14 @@ func (a *application) linkAccount(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "auth token required in header")
 	}
 
-	url := cfg.ShowdownUserService + "/access"
-	payload := []byte(fmt.Sprintf("{\"access_token\": \"%v\"}", token))
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(payload))
+	showdownUserObject, err := a.verifyShowdownAuthToken(token)
 	if err != nil {
-		return err
+		return echo.NewHTTPError(http.StatusBadRequest, "error verifying token %s", err)
 	}
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to authorize")
-	}
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-	tokenMap := map[string]interface{}{}
-	if err := json.Unmarshal(body, &tokenMap); err != nil {
-		return err
-	}
-	fmt.Println(tokenMap)
-	showdownUserID, ok := tokenMap["ShowdownUserID"].(string)
-	if !ok {
-		fmt.Println("failed to parse showdownUserID")
-		return fmt.Errorf("failed to parse showdownUserID")
-	}
-	lichessID, ok := tokenMap["LichessID"].(string)
-	if !ok {
-		fmt.Println("failed to parse LichessID")
-		return fmt.Errorf("failed to parse LichessID")
-	}
-	steamUserID, ok := tokenMap["UserID"].(string)
-	if !ok {
-		fmt.Println("failed to parse UserID")
-		return fmt.Errorf("failed to parse UserID")
-	}
-	fmt.Println("got all")
+
+	showdownUserID := showdownUserObject.ShowdownUserID
+	lichessID := showdownUserObject.LichessID
+	steamUserID := showdownUserObject.UserID
 
 	// j, err := jwt.ParseSigned(token, []jose.SignatureAlgorithm{jose.ES256})
 	// if err != nil {
@@ -89,7 +63,7 @@ func (a *application) linkAccount(c echo.Context) error {
 
 	st := uniuri.NewLen(10)
 	a.cache.Set(st, claims, time.Minute*5)
-	url, err = a.getLoginURL(c, "link", loginType, st)
+	url, err := a.getLoginURL(c, "link", loginType, st)
 	if err != nil {
 		fmt.Println(err)
 		return err
