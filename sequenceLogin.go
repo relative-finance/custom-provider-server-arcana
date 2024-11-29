@@ -47,6 +47,9 @@ func (a *application) sequenceLogin(c echo.Context) error {
 	userAddress := claims["sub"].(string)
 
 	showdownUserID, err := a.db.GetUserID(userEmail, EMAIL_PROVIDER)
+	if err != nil {
+		return fmt.Errorf("error while getting user from db %s", err)
+	}
 
 	// This email does not exist currently
 	if showdownUserID == "" {
@@ -144,7 +147,14 @@ func (a *application) accessTokenHandler(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, "Invalid access token")
 	}
 
-	return c.JSON(http.StatusOK, claims)
+	// for backward compatability
+	return c.JSON(http.StatusOK, map[string]string{
+		"ShowdownUserID": claims.ShowdownUserID,
+		"LichessID":      claims.LichessID,
+		"UserID":         claims.UserID,
+		"Address":        claims.Address,
+		"Email":          claims.Email,
+	})
 }
 
 func (a *application) verifyShowdownAuthToken(showdownAuthToken string) (*showdownUserTokenStruct, error) {
