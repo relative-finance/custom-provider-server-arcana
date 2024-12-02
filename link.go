@@ -63,22 +63,6 @@ func (a *application) linkAccount(c echo.Context) error {
 
 	st := uniuri.NewLen(10)
 	a.cache.Set(st, claims, time.Minute*5)
-
-	Store.Options.HttpOnly = true
-	Store.Options.SameSite = http.SameSiteStrictMode
-	session, _ := Store.Get(c.Request(), "cookie-name")
-
-	if loginType == "lichess" {
-		verifier, err := createVerifier()
-		if err != nil {
-			return err
-		}
-		session.Values["codeVerifier"] = verifier
-		session.Values["address"] = showdownUserObject.Address
-		session.Values["email"] = showdownUserObject.Email
-		session.Save(c.Request(), c.Response().Writer)
-	}
-
 	url, err := a.getLoginURL(c, "link", loginType, st)
 	if err != nil {
 		fmt.Println(err)
