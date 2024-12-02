@@ -68,44 +68,37 @@ func (a *application) completeLogin(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to get user info")
 	}
 
-	if sl[0] == "link" {
-		showdownUserID, err := a.db.GetUserID(id, sl[1])
-		if err != nil {
-			return err
-		}
-		if showdownUserID != "" {
-			return echo.NewHTTPError(http.StatusBadRequest, "This account already exists")
-		}
-	}
-
-	if sl[1] == "lichess" {
-		err = a.db.CreateLichessToken(id, accessToken)
-		if err != nil {
-			return err
-		}
-	}
-
-	if sl[0] == "link" {
-		err := a.linkComplete(id, sl[1], sl[2])
-		if err != nil {
-			return err
-		}
+	if sl[0] != "link" {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid method. has to be a link request")
 	}
 
 	showdownUserID, err := a.db.GetUserID(id, sl[1])
 	if err != nil {
 		return err
 	}
+	if showdownUserID != "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "This account already exists")
+	}
+
+	if sl[1] == "lichess" {
+		err = a.db.CreateLichessToken(id, accessToken)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, "create lichess token %s", err)
+		}
+	}
+
+	err = a.linkComplete(id, sl[1], sl[2])
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "cannot link %s", err)
+	}
+
+	showdownUserID, err = a.db.GetUserID(id, sl[1])
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "cannot get showdownUserID %s", err)
+	}
 
 	if showdownUserID == "" {
-		err := a.db.CreateNewUser(id, sl[1])
-		if err != nil {
-			return err
-		}
-		showdownUserID, err = a.db.GetUserID(id, sl[1])
-		if err != nil {
-			return err
-		}
+		return echo.NewHTTPError(http.StatusInternalServerError, "The account does not exist")
 	}
 
 	accounts, err := a.db.GetConnectedAccounts(showdownUserID)
@@ -113,7 +106,7 @@ func (a *application) completeLogin(c echo.Context) error {
 		return err
 	}
 
-	var steamID, lichessID, telegramID string
+	var steamID, lichessID, telegramID, address, email string
 	for _, account := range accounts {
 		switch account.Provider {
 		case "steam":
@@ -122,13 +115,17 @@ func (a *application) completeLogin(c echo.Context) error {
 			lichessID = account.ID
 		case TELEGRAM_PROVIDER:
 			telegramID = account.ID
+		case WALLET_PROVIDER:
+			address = account.ID
+		case EMAIL_PROVIDER:
+			email = account.ID
 		}
 	}
 
 	accessToken, loginToken, err := a.generateShowdownAuthTokens(
 		showdownUserID,
-		"", // address
-		"", // email
+		address,
+		email,
 		steamID,
 		lichessID,
 		telegramID,
