@@ -51,9 +51,12 @@ func (a *application) completeLogin(c echo.Context) error {
 	}
 
 	session, _ := Store.Get(c.Request(), "cookie-name")
-	verifier, ok := session.Values["codeVerifier"].(string)
+	address, _ := session.Values["address"].(string)
+	email, _ := session.Values["email"].(string)
+	verifier, _ := session.Values["codeVerifier"].(string)
+
 	var oauth2Token *oauth2.Token
-	if !ok || verifier == "" {
+	if verifier == "" {
 		oauth2Token, err = p.conf.Exchange(context.Background(), code)
 	} else {
 		oauth2Token, err = p.conf.Exchange(context.Background(), code, oauth2.SetAuthURLParam("code_verifier", verifier))
@@ -127,8 +130,8 @@ func (a *application) completeLogin(c echo.Context) error {
 
 	accessToken, loginToken, err := a.generateShowdownAuthTokens(
 		showdownUserID,
-		"", // address
-		"", // email
+		address,
+		email,
 		steamID,
 		lichessID,
 		telegramID,
