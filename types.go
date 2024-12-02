@@ -26,6 +26,7 @@ type ProviderConfig struct {
 	Scope        []string
 }
 
+// Here UserID is showdownUserID
 type customClaims struct {
 	UserID     string `json:"user_id"`
 	LoginID    string `json:"login_id"`
