@@ -125,7 +125,6 @@ func main() {
 
 	e := echo.New()
 	e.Use(middleware.CORS())
-	e.GET("/start", app.startLogin)
 	e.GET("/link/:provider", app.linkAccount)
 	e.GET("/connected-accounts", app.connectedAccounts)
 	e.POST("/complete", app.completeLogin)
