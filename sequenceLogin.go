@@ -40,7 +40,7 @@ func (a *application) sequenceLogin(c echo.Context) error {
 
 	claims, err := verifySequenceToken(token)
 	if err != nil {
-		return fmt.Errorf("error verifying token %s", err)
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid token"})
 	}
 
 	userEmail := claims["email"].(string)
@@ -48,26 +48,30 @@ func (a *application) sequenceLogin(c echo.Context) error {
 
 	showdownUserID, err := a.db.GetUserID(userEmail, EMAIL_PROVIDER)
 	if err != nil {
-		return fmt.Errorf("error while getting user from db %s", err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Error while getting user from db"})
 	}
 
 	// This email does not exist currently
 	if showdownUserID == "" {
 		err := a.db.CreateNewUser(userEmail, EMAIL_PROVIDER)
 		if err != nil {
-			return err
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Error creating new user"})
 		}
 		showdownUserID, err = a.db.GetUserID(userEmail, EMAIL_PROVIDER)
 		if err != nil {
-			return err
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Error getting user ID"})
 		}
-		a.db.LinkToExistingUser(userAddress, WALLET_PROVIDER, showdownUserID)
+		err = a.db.LinkToExistingUser(userAddress, WALLET_PROVIDER, showdownUserID)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Error linking wallet to user"})
+		}
 	}
+
 	accounts, err := a.db.GetConnectedAccounts(showdownUserID)
 	if err != nil {
-		fmt.Println(err)
-		return err
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Error getting connected accounts"})
 	}
+
 	userSteamID := ""
 	userLichessID := ""
 	userTelegramID := ""
@@ -85,7 +89,7 @@ func (a *application) sequenceLogin(c echo.Context) error {
 
 	accessToken, refreshToken, err := a.generateShowdownAuthTokens(showdownUserID, userAddress, userEmail, userSteamID, userLichessID, userTelegramID)
 	if err != nil {
-		return fmt.Errorf("error generating tokens %s", err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Error generating tokens"})
 	}
 
 	return c.JSON(http.StatusOK, map[string]string{"refreshToken": refreshToken, "accessToken": accessToken})
