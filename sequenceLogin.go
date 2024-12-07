@@ -96,24 +96,34 @@ func (a *application) sequenceLogin(c echo.Context) error {
 }
 
 func (a *application) refreshTokenHandler(c echo.Context) error {
-	var req struct {
-		RefreshToken string `json:"refresh_token"`
+	// Try to get the refresh token from the cookies
+	cookie, err := c.Cookie("refresh_token")
+	var refreshToken string
+
+	if err == nil && cookie != nil {
+		refreshToken = cookie.Value
+	} else {
+		// If the cookie is not found, check the body
+		var req struct {
+			RefreshToken string `json:"refresh_token"`
+		}
+
+		if err := c.Bind(&req); err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "Invalid request body")
+		}
+
+		refreshToken = req.RefreshToken
 	}
 
-	if err := c.Bind(&req); err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request body")
-	}
-
-	if req.RefreshToken == "" {
+	if refreshToken == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "refresh_token is required")
 	}
 
-	customClaims, err := a.verifyShowdownAuthToken(req.RefreshToken)
+	customClaims, err := a.verifyShowdownAuthToken(refreshToken)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, "Refresh token validation failed")
 	}
 
-	// Generate new access token
 	accessToken, _, err := a.generateShowdownAuthTokens(
 		customClaims.ShowdownUserID,
 		customClaims.Address,
