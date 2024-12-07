@@ -104,10 +104,10 @@ func (a *application) sequenceLogin(c echo.Context) error {
 	expiresIn := time.Now().Add(ACCESS_TOKEN_TTL).Unix()
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
-		"accessToken": accessToken,
-		"expiresIn":   expiresIn,
-		"refreshToken": refreshToken,
-		"tokenType":   "Bearer",
+		"access_token":  accessToken,
+		"expires_in":    expiresIn,
+		"refresh_token": refreshToken,
+		"token_type":    "Bearer",
 	})
 }
 
