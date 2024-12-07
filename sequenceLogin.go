@@ -92,7 +92,23 @@ func (a *application) sequenceLogin(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Error generating tokens"})
 	}
 
-	return c.JSON(http.StatusOK, map[string]string{"refreshToken": refreshToken, "accessToken": accessToken})
+	session, _ := Store.Get(c.Request(), "cookie-name")
+	session.Values["refresh_token"] = refreshToken
+	session.Options.MaxAge = int(REFRESH_TOKEN_TTL.Seconds())
+	session.Options.HttpOnly = true
+	session.Options.Secure = true
+	session.Options.Path = "/"
+	session.Save(c.Request(), c.Response().Writer)
+
+	// Calculate expiresIn timestamp
+	expiresIn := time.Now().Add(ACCESS_TOKEN_TTL).Unix()
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"accessToken": accessToken,
+		"expiresIn":   expiresIn,
+		"refreshToken": refreshToken,
+		"tokenType":   "Bearer",
+	})
 }
 
 func (a *application) refreshTokenHandler(c echo.Context) error {
