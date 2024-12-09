@@ -30,7 +30,7 @@ func (a *application) linkAccount(c echo.Context) error {
 
 	showdownUserObject, err := a.verifyShowdownAuthToken(token)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "error verifying token %s", err)
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("error verifying token %s", err))
 	}
 
 	showdownUserID := showdownUserObject.ShowdownUserID
