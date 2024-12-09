@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/go-jose/go-jose/v4"
 	"github.com/labstack/echo/v4"
@@ -133,6 +134,17 @@ func (a *application) completeLogin(c echo.Context) error {
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to generate tokens")
 	}
+
+	http.SetCookie(c.Response(), &http.Cookie{
+		Name:     "refresh_token",
+		Value:    loginToken,
+		Path:     "/",
+		Expires:  time.Now().Add(REFRESH_TOKEN_TTL),
+		MaxAge:   int(REFRESH_TOKEN_TTL.Seconds()),
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteStrictMode,
+	})
 
 	return c.JSON(http.StatusOK, map[string]string{
 		"token":      accessToken,
