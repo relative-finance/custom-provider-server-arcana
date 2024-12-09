@@ -137,7 +137,7 @@ func main() {
 	e.POST("/sequence-login", app.sequenceLogin)
 	e.POST("/access", app.accessTokenHandler)
 	e.POST("/refresh", app.refreshTokenHandler)
-	e.POST("/logout", app.logoutHandler)
+	e.GET("/logout", app.logoutHandler)
 
 	{
 		_, ok := app.authMap["lichess"]
