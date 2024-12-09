@@ -92,8 +92,8 @@ func (a *application) sequenceLogin(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Error generating tokens"})
 	}
 
-	session, _ := Store.Get(c.Request(), "cookie-name")
-	session.Values["refresh_token"] = refreshToken
+	session, _ := Store.Get(c.Request(), "refresh-token")
+	session.Values["refresh-token"] = refreshToken
 	session.Options.MaxAge = int(REFRESH_TOKEN_TTL.Seconds())
 	session.Options.HttpOnly = true
 	session.Options.Secure = true
