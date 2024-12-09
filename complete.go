@@ -153,3 +153,16 @@ func (a *application) completeLogin(c echo.Context) error {
 		"loginToken": loginToken,
 	})
 }
+func (a *application) logoutHandler(c echo.Context) error {
+	http.SetCookie(c.Response(), &http.Cookie{
+		Name:     "refresh_token",
+		Value:    "",
+		Path:     "/",
+		Expires:  time.Unix(0, 0),
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteStrictMode,
+	})
+	return c.NoContent(http.StatusOK)
+}
