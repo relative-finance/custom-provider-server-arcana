@@ -92,13 +92,16 @@ func (a *application) sequenceLogin(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Error generating tokens"})
 	}
 
-	session, _ := Store.Get(c.Request(), "refresh-token")
-	session.Values["refresh-token"] = refreshToken
-	session.Options.MaxAge = int(REFRESH_TOKEN_TTL.Seconds())
-	session.Options.HttpOnly = true
-	session.Options.Secure = true
-	session.Options.Path = "/"
-	session.Save(c.Request(), c.Response().Writer)
+	http.SetCookie(c.Response(), &http.Cookie{
+		Name:     "refresh_token",
+		Value:    refreshToken,
+		Path:     "/",
+		Expires:  time.Now().Add(REFRESH_TOKEN_TTL),
+		MaxAge:   int(REFRESH_TOKEN_TTL.Seconds()),
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteStrictMode,
+	})
 
 	// Calculate expiresIn timestamp
 	expiresIn := time.Now().Add(ACCESS_TOKEN_TTL).Unix()
