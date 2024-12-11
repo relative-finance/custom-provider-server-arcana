@@ -12,6 +12,8 @@ import (
 )
 
 const TELEGRAM_PROVIDER = "telegram"
+const EMAIL_PROVIDER = "email"
+const WALLET_PROVIDER = "address"
 
 func generateUniqueUserID(db *sql.DB) (string, error) {
 	var userID string

@@ -1,14 +1,12 @@
 package main
 
 import (
-	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"sort"
 	"strings"
@@ -30,40 +28,14 @@ func (a *application) linkAccount(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "auth token required in header")
 	}
 
-	url := cfg.ShowdownUserService + "/access"
-	payload := []byte(fmt.Sprintf("{\"access_token\": \"%v\"}", token))
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(payload))
+	showdownUserObject, err := a.verifyShowdownAuthToken(token)
 	if err != nil {
-		return err
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("error verifying token %s", err))
 	}
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to authorize")
-	}
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-	tokenMap := map[string]interface{}{}
-	if err := json.Unmarshal(body, &tokenMap); err != nil {
-		return err
-	}
-	fmt.Println(tokenMap)
-	showdownUserID, ok := tokenMap["ShowdownUserID"].(string)
-	if !ok {
-		fmt.Println("failed to parse showdownUserID")
-		return fmt.Errorf("failed to parse showdownUserID")
-	}
-	lichessID, ok := tokenMap["LichessID"].(string)
-	if !ok {
-		fmt.Println("failed to parse LichessID")
-		return fmt.Errorf("failed to parse LichessID")
-	}
-	steamUserID, ok := tokenMap["UserID"].(string)
-	if !ok {
-		fmt.Println("failed to parse UserID")
-		return fmt.Errorf("failed to parse UserID")
-	}
-	fmt.Println("got all")
+
+	showdownUserID := showdownUserObject.ShowdownUserID
+	lichessID := showdownUserObject.LichessID
+	steamUserID := showdownUserObject.UserID
 
 	// j, err := jwt.ParseSigned(token, []jose.SignatureAlgorithm{jose.ES256})
 	// if err != nil {
@@ -89,7 +61,7 @@ func (a *application) linkAccount(c echo.Context) error {
 
 	st := uniuri.NewLen(10)
 	a.cache.Set(st, claims, time.Minute*5)
-	url, err = a.getLoginURL(c, "link", loginType, st)
+	url, err := a.getLoginURL(c, "link", loginType, st)
 	if err != nil {
 		fmt.Println(err)
 		return err
@@ -225,40 +197,12 @@ func (a *application) telegramAuth(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "telegram user id not found")
 	}
 
-	url := cfg.ShowdownUserService + "/access"
-	payload := []byte(fmt.Sprintf("{\"access_token\": \"%v\"}", token))
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(payload))
+	showdownUserObject, err := a.verifyShowdownAuthToken(token)
 	if err != nil {
-		return err
-	}
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to authorize")
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("error verifying token %s", err))
 	}
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-
-	tokenMap := map[string]interface{}{}
-	if err := json.Unmarshal(body, &tokenMap); err != nil {
-		return err
-	}
-
-	showdownUserID, ok := tokenMap["ShowdownUserID"].(string)
-	if !ok {
-		return fmt.Errorf("failed to parse showdownUserID")
-	}
-
-	lichessID, ok := tokenMap["LichessID"].(string)
-	if !ok {
-		return fmt.Errorf("failed to parse LichessID")
-	}
-
-	steamUserID, ok := tokenMap["UserID"].(string)
-	if !ok {
-		return fmt.Errorf("failed to parse UserID")
-	}
+	showdownUserID := showdownUserObject.ShowdownUserID
 
 	existingTelegramID, err := a.db.GetLinkedTelegramIDFromShowdownID(showdownUserID)
 	if err != nil {
@@ -296,25 +240,44 @@ func (a *application) telegramAuth(c echo.Context) error {
 		}
 	}
 
-	customClaims := customClaims{
-		UserID:     showdownUserID,
-		LoginType:  TELEGRAM_PROVIDER,
-		TelegramID: telegramUserID,
-		LoginID:    steamUserID,
-		LinkedID:   lichessID,
+	accounts, err := a.db.GetConnectedAccounts(showdownUserID)
+	if err != nil {
+		return err
 	}
 
-	if steamUserID == "" {
-		customClaims.LoginID = lichessID
-		customClaims.LinkedID = steamUserID
+	var steamID, lichessID, telegramID, address, email string
+	for _, account := range accounts {
+		switch account.Provider {
+		case "steam":
+			steamID = account.ID
+		case "lichess":
+			lichessID = account.ID
+		case TELEGRAM_PROVIDER:
+			telegramID = account.ID
+		case WALLET_PROVIDER:
+			address = account.ID
+		case EMAIL_PROVIDER:
+			email = account.ID
+		}
+	}
+
+	accessToken, loginToken, err := a.generateShowdownAuthTokens(
+		showdownUserID,
+		address,
+		email,
+		steamID,
+		lichessID,
+		telegramID,
+	)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to generate tokens")
 	}
 
 	return c.JSON(http.StatusOK, map[string]string{
-		"user_id":     customClaims.UserID,
-		"login_id":    customClaims.LoginID,
-		"login_type":  customClaims.LoginType,
-		"linked_id":   customClaims.LinkedID,
-		"telegram_id": customClaims.TelegramID,
+		"token":      accessToken,
+		"userID":     showdownUserID,
+		"loginType":  "telegram",
+		"loginToken": loginToken,
 	})
 }
 

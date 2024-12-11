@@ -1,20 +1,19 @@
 package main
 
 type configuration struct {
-	ListenPort          string
-	RedirectURL         string
-	KeyFilePath         string
-	SelfURL             string
-	JwtAudience         string
-	MySQLHost           string
-	MySQLPort           string
-	MySQLUser           string
-	MySQLPass           string
-	MySQLDB             string
-	Apikey              string
-	ShowdownUserService string
-	Verifiers           []ProviderConfig
-	TelegramBotToken    string
+	ListenPort       string
+	RedirectURL      string
+	KeyFilePath      string
+	SelfURL          string
+	JwtAudience      string
+	MySQLHost        string
+	MySQLPort        string
+	MySQLUser        string
+	MySQLPass        string
+	MySQLDB          string
+	Apikey           string
+	Verifiers        []ProviderConfig
+	TelegramBotToken string
 }
 
 type ProviderConfig struct {
@@ -26,12 +25,23 @@ type ProviderConfig struct {
 	Scope        []string
 }
 
+// Here UserID is showdownUserID
 type customClaims struct {
 	UserID     string `json:"user_id"`
 	LoginID    string `json:"login_id"`
 	LoginType  string `json:"login_type"`
 	LinkedID   string `json:"linked_id"`
 	TelegramID string `json:"telegram_id"`
+}
+
+// UserID is the steamID of the user.
+type showdownUserTokenStruct struct {
+	ShowdownUserID string `json:"showdownUserID"`
+	UserID         string `json:"userID"`
+	LichessID      string `json:"lichessID"`
+	TelegramID     string `json:"telegramID"`
+	Address        string `json:"address"`
+	Email          string `json:"email"`
 }
 
 type SteamSession struct {

@@ -1,10 +1,7 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 
@@ -57,31 +54,15 @@ func (a *application) getLichessTokenFromAccessToken(c echo.Context) error {
 		return err
 	}
 
-	url := cfg.ShowdownUserService + "/access"
-	payload := []byte(fmt.Sprintf("{\"access_token\": \"%v\"}", tokenStr))
-
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(payload))
+	showdownUserObject, err := a.verifyShowdownAuthToken(tokenStr)
 	if err != nil {
-		return err
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("error verifying token %s", err))
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to authorize")
-	}
+	lichessID := showdownUserObject.LichessID
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-
-	tokenMap := map[string]interface{}{}
-	if err := json.Unmarshal(body, &tokenMap); err != nil {
-		return err
-	}
-
-	lichessID, ok := tokenMap["LichessID"].(string)
-	if !ok {
-		return fmt.Errorf("failed to parse lichessID")
+	if lichessID == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "empty lichess id")
 	}
 
 	lichessToken, err := a.db.GetLichessToken(lichessID)

@@ -9,7 +9,6 @@ MySQLUser = ""
 MySQLPass = ""
 MySQLDB = ""
 Apikey = ""
-ShowdownUserService = ""
 TelegramBotToken = ""
 
 [[Verifiers]]

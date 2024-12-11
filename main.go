@@ -125,7 +125,6 @@ func main() {
 
 	e := echo.New()
 	e.Use(middleware.CORS())
-	e.GET("/start", app.startLogin)
 	e.GET("/link/:provider", app.linkAccount)
 	e.GET("/connected-accounts", app.connectedAccounts)
 	e.POST("/complete", app.completeLogin)
@@ -135,6 +134,10 @@ func main() {
 	e.POST("/auth/telegram", app.telegramAuth)
 	e.GET("/get_telegram_id", app.getTelegramID)
 	e.POST("/verify/telegram", app.verifyTelegramUser)
+	e.POST("/sequence-login", app.sequenceLogin)
+	e.POST("/access", app.accessTokenHandler)
+	e.POST("/refresh", app.refreshTokenHandler)
+	e.GET("/logout", app.logoutHandler)
 
 	{
 		_, ok := app.authMap["lichess"]

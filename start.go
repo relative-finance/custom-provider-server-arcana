@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/dchest/uniuri"
 	"github.com/gorilla/sessions"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/oauth2"
@@ -33,22 +32,6 @@ func createVerifier() (string, error) {
 func createChallenge(verifier string) string {
 	hash := sha256.Sum256([]byte(verifier))
 	return base64URLEncode(hash[:])
-}
-
-func (a *application) startLogin(c echo.Context) error {
-	c.Response().Header().Set("Access-Control-Allow-Credentials", "true")
-	// c.Response().Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
-	loginType := c.QueryParam("loginType")
-	if loginType == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "loginType query is expected")
-	}
-
-	url, err := a.getLoginURL(c, "login", loginType, uniuri.NewLen(10))
-	if err != nil {
-		return err
-	}
-
-	return c.Redirect(http.StatusSeeOther, url)
 }
 
 func (a *application) getLoginURL(c echo.Context, flowType, loginType, st string) (string, error) {

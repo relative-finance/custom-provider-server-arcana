@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-jose/go-jose/v4/jwt"
 	"github.com/labstack/echo/v4"
 )
 
@@ -84,63 +83,41 @@ func (a *application) verifyTelegramUser(c echo.Context) error {
 
 	accounts, err := a.db.GetConnectedAccounts(showdownUserID)
 	if err != nil {
-		return fmt.Errorf("failed to get connected accounts: %w", err)
+		return err
 	}
 
-	cl := jwt.Claims{
-		Audience:  []string{a.jwtAudience},
-		Issuer:    a.selfURL,
-		NotBefore: jwt.NewNumericDate(time.Now()),
-		IssuedAt:  jwt.NewNumericDate(time.Now()),
-		Expiry:    jwt.NewNumericDate(time.Now().Add(time.Minute * 3)),
-	}
-
-	var lichessID, steamID string
+	var steamID, lichessID, telegramID, address, email string
 	for _, account := range accounts {
 		switch account.Provider {
-		case "lichess":
-			lichessID = account.ID
 		case "steam":
 			steamID = account.ID
+		case "lichess":
+			lichessID = account.ID
+		case TELEGRAM_PROVIDER:
+			telegramID = account.ID
+		case WALLET_PROVIDER:
+			address = account.ID
+		case EMAIL_PROVIDER:
+			email = account.ID
 		}
 	}
 
-	customClaims := customClaims{
-		UserID:     showdownUserID,
-		LoginType:  TELEGRAM_PROVIDER,
-		TelegramID: telegramUserID,
-	}
-
-	if steamID == "" || lichessID == "" {
-		if steamID == "" {
-			customClaims.LoginID = lichessID
-			customClaims.LinkedID = steamID
-		} else {
-			customClaims.LoginID = steamID
-			customClaims.LinkedID = lichessID
-		}
-	} else {
-		customClaims.LoginID = steamID
-		customClaims.LinkedID = lichessID
-	}
-
-	token, err := jwt.Signed(a.signer).Claims(cl).Claims(customClaims).Serialize()
+	accessToken, loginToken, err := a.generateShowdownAuthTokens(
+		showdownUserID,
+		address,
+		email,
+		steamID,
+		lichessID,
+		telegramID,
+	)
 	if err != nil {
-		fmt.Println("jwtcreationerror:", err)
-		return echo.NewHTTPError(http.StatusInternalServerError)
-	}
-
-	cl.Audience = []string{cl.Issuer}
-	loginToken, err := jwt.Signed(a.signer).Claims(cl).Claims(customClaims).Serialize()
-	if err != nil {
-		fmt.Println("jwtcreationerror:", err)
-		return echo.NewHTTPError(http.StatusInternalServerError)
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to generate tokens")
 	}
 
 	return c.JSON(http.StatusOK, map[string]string{
-		"token":      token,
+		"token":      accessToken,
 		"userID":     showdownUserID,
-		"loginType":  TELEGRAM_PROVIDER,
+		"loginType":  "telegram",
 		"loginToken": loginToken,
 	})
 }
